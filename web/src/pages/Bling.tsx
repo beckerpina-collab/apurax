@@ -37,13 +37,15 @@ interface PuxarSaidasResp {
   periodo: string;
   totalNotas: number;
   totalValor: number;
+  truncado?: boolean;
   notas: NotaSaida[];
   observacao: string;
 }
 
 interface ImportResp {
-  total: number;
-  enfileiradas: number;
+  status?: string; // 'varrendo' no fluxo real (segundo plano, sem limite)
+  total?: number; // legado/demo
+  enfileiradas?: number; // legado/demo
   jaNaFila?: number;
   filaPendentes?: number;
   observacao: string;
@@ -150,7 +152,11 @@ export default function Bling() {
     try {
       const r = (await api.blingImportarSaidas(empresaId, dataInicial, dataFinal)) as ImportResp;
       setImportResultado(r);
-      toast.success(`${r.enfileiradas} de ${r.total} nota(s) enfileirada(s) — importando em segundo plano.`);
+      toast.success(
+        r.status === 'varrendo'
+          ? 'Varredura do período iniciada — importando em segundo plano.'
+          : `${r.enfileiradas} de ${r.total} nota(s) enfileirada(s) — importando em segundo plano.`,
+      );
     } catch (e: any) {
       toast.error(e?.message ?? 'Falha ao importar as saídas para a apuração.');
     } finally {
@@ -291,8 +297,11 @@ export default function Bling() {
         <Alert className="mt-6">
           <Calculator className="h-4 w-4" />
           <AlertTitle>
-            {importResultado.enfileiradas} de {importResultado.total} nota(s) na fila de importação
-            {importResultado.jaNaFila ? ` · ${importResultado.jaNaFila} já estavam na fila` : ''}
+            {importResultado.status === 'varrendo'
+              ? 'Varredura iniciada — importando o período inteiro em segundo plano'
+              : `${importResultado.enfileiradas} de ${importResultado.total} nota(s) na fila de importação${
+                  importResultado.jaNaFila ? ` · ${importResultado.jaNaFila} já estavam na fila` : ''
+                }`}
           </AlertTitle>
           <AlertDescription>
             {importResultado.observacao} Use <b>Atualizar status</b> para acompanhar a fila; quando zerar, rode a
@@ -313,8 +322,12 @@ export default function Bling() {
             />
             <StatCard
               title="Valor total das saídas"
-              value={brl(resultado.totalValor)}
-              subtitle="Base do imposto a pagar"
+              value={resultado.totalValor > 0 ? brl(resultado.totalValor) : '—'}
+              subtitle={
+                resultado.totalValor > 0
+                  ? 'Base do imposto a pagar'
+                  : 'A listagem do Bling não traz valor — veja em Documentos após importar'
+              }
               icon={DownloadCloud}
               variant="accent"
             />
@@ -335,15 +348,13 @@ export default function Bling() {
                       <TableHead>Data</TableHead>
                       <TableHead>Destinatário</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="text-right">ICMS</TableHead>
-                      <TableHead className="text-right">PIS/COFINS</TableHead>
                       <TableHead>Situação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {resultado.notas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                           Nenhuma nota de saída encontrada no período.
                         </TableCell>
                       </TableRow>
@@ -354,11 +365,7 @@ export default function Bling() {
                           <TableCell>{n.serie}</TableCell>
                           <TableCell>{dataBR(n.dataEmissao)}</TableCell>
                           <TableCell className="max-w-[220px] truncate">{n.destinatario}</TableCell>
-                          <TableCell className="text-right tabular-nums">{brl(n.valor)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{n.icms != null ? brl(n.icms) : '—'}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {n.pisCofins != null ? brl(n.pisCofins) : '—'}
-                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{n.valor > 0 ? brl(n.valor) : '—'}</TableCell>
                           <TableCell>
                             <Badge variant="secondary">{n.situacao}</Badge>
                           </TableCell>
@@ -372,9 +379,9 @@ export default function Bling() {
           </Card>
 
           {resultado.observacao && (
-            <Alert>
-              <Receipt className="h-4 w-4" />
-              <AlertTitle>Observação</AlertTitle>
+            <Alert variant={resultado.truncado ? 'destructive' : 'default'}>
+              {resultado.truncado ? <AlertTriangle className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
+              <AlertTitle>{resultado.truncado ? 'Pré-visualização truncada' : 'Observação'}</AlertTitle>
               <AlertDescription>{resultado.observacao}</AlertDescription>
             </Alert>
           )}
