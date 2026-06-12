@@ -186,12 +186,16 @@ export const api = {
     return http<typeof APURACOES>('/apuracoes');
   },
 
-  async dashboard() {
+  async dashboard(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();
       return DASHBOARD;
     }
-    return http<typeof DASHBOARD>('/dashboard/resumo');
+    const q = new URLSearchParams();
+    if (ano) q.set('ano', String(ano));
+    if (mes) q.set('mes', String(mes));
+    const qs = q.toString();
+    return http<typeof DASHBOARD>(`/dashboard/resumo${qs ? `?${qs}` : ''}`);
   },
 
   async importarDoc(modelo: ModeloDoc, empresaId: string, xml: string) {

@@ -6,26 +6,72 @@ import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import StatusPill from '@/components/StatusPill';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '../lib/api';
 import { brl } from '../lib/format';
 import { DASHBOARD, type Apuracao } from '../lib/mock';
 
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
 export default function Dashboard() {
   const [d, setD] = useState(DASHBOARD);
   const [apur, setApur] = useState<Apuracao[]>([]);
+  const [ano, setAno] = useState('todos');
+  const [mes, setMes] = useState('todos');
 
   useEffect(() => {
-    api.dashboard().then(setD).catch(() => undefined);
+    api
+      .dashboard(ano === 'todos' ? undefined : Number(ano), mes === 'todos' ? undefined : Number(mes))
+      .then(setD)
+      .catch(() => undefined);
+  }, [ano, mes]);
+
+  useEffect(() => {
     api.apuracoes().then(setApur).catch(() => undefined);
   }, []);
 
+  const anos = d.anosDisponiveis ?? [];
+
   return (
     <div>
-      <PageHeader title="Painel" description={`Visão fiscal da competência ${d.competencia}`} />
+      <PageHeader title="Painel" description={`Visão fiscal — ${d.competencia}`}>
+        <Select
+          value={ano}
+          onValueChange={(v) => {
+            setAno(v);
+            if (v === 'todos') setMes('todos');
+          }}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Ano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os anos</SelectItem>
+            {anos.map((a) => (
+              <SelectItem key={a} value={String(a)}>
+                {a}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={mes} onValueChange={setMes} disabled={ano === 'todos'}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os meses</SelectItem>
+            {MESES.map((m, i) => (
+              <SelectItem key={m} value={String(i + 1)}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </PageHeader>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Crédito sugerido" value={brl(d.creditoSugerido)} subtitle="aguardando homologação" icon={TrendingUp} variant="primary" />
-        <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="débito − crédito (mês)" icon={Receipt} />
+        <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="débito − crédito do período" icon={Receipt} />
         <StatCard title="Lacuna no SPED" value={brl(d.lacunaSped)} subtitle="crédito não escriturado" icon={FileWarning} />
         <StatCard title="Delta reforma" value={brl(d.deltaReforma)} subtitle="CBS/IBS vs. legado" icon={ArrowLeftRight} variant="accent" />
       </div>
@@ -33,22 +79,29 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="shadow-sm lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Crédito vs. débito por mês</CardTitle>
+            <CardTitle className="text-sm font-semibold">Crédito vs. débito por competência</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={d.serie} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip
-                  formatter={(value: number) => brl(value)}
-                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                />
-                <Bar dataKey="debito" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Débito (a pagar)" />
-                <Bar dataKey="credito" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Crédito" />
-              </BarChart>
-            </ResponsiveContainer>
+            {d.serie.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={d.serie} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => brl(value)}
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="debito" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Débito (a pagar)" />
+                  <Bar dataKey="credito" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Crédito" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState
+                title="Sem apurações no período"
+                description="Importe documentos (Bling, SEFAZ ou XML) e rode a apuração em Apurações → Imposto a pagar."
+              />
+            )}
           </CardContent>
         </Card>
 

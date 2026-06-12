@@ -91,7 +91,9 @@ export const DASHBOARD = {
   creditoHomologado: 76.0,
   lacunaSped: 217.5,
   deltaReforma: 85.0,
-  competencia: 'fev/2026',
+  competencia: 'competência fev/2026',
+  documentos: 4,
+  anosDisponiveis: [2026, 2025],
   impostoAPagar: { ICMS: 4200.0, IPI: 0, 'PIS/COFINS': 3120.0, ISS: 150.0, total: 7470.0 },
   serie: [
     { mes: 'set', credito: 1820, debito: 6400 },
