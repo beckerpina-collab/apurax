@@ -16,7 +16,7 @@ import {
   mapInvoiceToSaida,
 } from './bling.client';
 import { assinaturaValida, parseEventoNfe } from './bling.webhook';
-import { FilaSequencial } from './fila-sequencial';
+import { BlingFilaService } from './bling-fila.service';
 
 const PAGE = 100;
 const MAX_NOTAS = 500;
@@ -25,26 +25,18 @@ const MAX_NOTAS = 500;
 export class BlingService {
   private readonly logger = new Logger(BlingService.name);
 
-  /**
-   * Fila ÚNICA de processamento de notas (webhook + importação manual).
-   * O webhook só enfileira e responde 200 na hora; a vazão é regida pelo
-   * blingLimiter (~2,5 req/s) dentro das chamadas à API. Falha transitória
-   * (429/5xx/rede) volta para o fim da fila e re-tenta até 4x.
-   */
-  private readonly fila = new FilaSequencial((id) => this.processarInvoice(id), {
-    maxTentativas: 4,
-    atrasoRetryMs: 5000,
-    onErro: (id, e, desistiu) =>
-      this.logger.warn(`fila NF ${id}: ${e.message}${desistiu ? ' — desistiu após re-tentativas' : ' — vai re-tentar'}`),
-  });
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly token: BlingTokenService,
     private readonly nfe: NfeService,
     private readonly cls: ClsService,
     private readonly config: ConfigService,
-  ) {}
+    private readonly fila: BlingFilaService,
+  ) {
+    // Fila ÚNICA (webhook + importação manual): Redis/BullMQ quando REDIS_URL
+    // existe; memória no dev. Falha transitória re-tenta; vazão ~2 notas/s.
+    this.fila.definirProcessador((id) => this.processarInvoice(id));
+  }
 
   /** URL de autorização OAuth. Cria o `state` (CSRF) amarrado à empresa. */
   async authUrl(empresaId: string): Promise<{ authorization_url: string }> {
@@ -82,7 +74,7 @@ export class BlingService {
 
   async status(empresaId: string) {
     const s = await this.token.statusConexao(this.prisma.tenantId, empresaId);
-    return { ...s, filaPendentes: this.fila.tamanho };
+    return { ...s, filaPendentes: await this.fila.pendentes() };
   }
 
   /** Lista as NF-e de SAÍDA do período (pré-visualização; não baixa XML). */
@@ -114,7 +106,7 @@ export class BlingService {
 
     let enfileiradas = 0;
     for (const nf of notas) {
-      if (this.fila.enfileirar(String(nf.id))) enfileiradas += 1;
+      if (await this.fila.enfileirar(String(nf.id))) enfileiradas += 1;
     }
     await this.token.marcarSync(this.prisma.tenantId, empresaId).catch(() => undefined);
 
@@ -122,7 +114,7 @@ export class BlingService {
       total: notas.length,
       enfileiradas,
       jaNaFila: notas.length - enfileiradas,
-      filaPendentes: this.fila.tamanho,
+      filaPendentes: await this.fila.pendentes(),
       observacao:
         'Importação em segundo plano: as notas entram como documentos de saída conforme a fila avança (~2 notas/segundo, limite do Bling). Acompanhe em Documentos e depois rode /apuracao.',
     };
@@ -142,7 +134,7 @@ export class BlingService {
     }
     const ev = parseEventoNfe(raw);
     if (ev) {
-      this.fila.enfileirar(String(ev.invoiceId));
+      await this.fila.enfileirar(String(ev.invoiceId));
     }
     return { ok: true };
   }

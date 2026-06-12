@@ -191,8 +191,7 @@ export const api = {
       await delay();
       return DASHBOARD;
     }
-    // backend ainda não expõe um resumo único; agregaríamos aqui no real.
-    return DASHBOARD;
+    return http<typeof DASHBOARD>('/dashboard/resumo');
   },
 
   async importarDoc(modelo: ModeloDoc, empresaId: string, xml: string) {

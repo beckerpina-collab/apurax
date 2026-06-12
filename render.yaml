@@ -4,6 +4,14 @@
 # Região 'virginia' (US-leste, mais perto do Brasil). web e db na MESMA região.
 # ============================================================================
 services:
+  # Redis (Render Key Value) — fila de notas do Bling (BullMQ). Plano free:
+  # 25MB, sem persistência em disco (suficiente p/ fila; jobs re-importáveis).
+  - type: keyvalue
+    name: apurax-redis
+    plan: free
+    region: virginia
+    ipAllowList: [] # somente acesso interno (apurax-api)
+
   - type: web
     name: apurax-api
     runtime: docker
@@ -30,6 +38,12 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: apurax-db
+          property: connectionString
+      # Fila do Bling (BullMQ) no Render Key Value (Redis) — URL interna.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: apurax-redis
           property: connectionString
       - key: JWT_SECRET
         generateValue: true          # Render gera um segredo forte

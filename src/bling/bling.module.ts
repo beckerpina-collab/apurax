@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { CryptoEnvelopeService, KMS_MASTER_KEY } from '../dfe/crypto-envelope.service';
 import { FiscalModule } from '../fiscal/fiscal.module';
 import { BlingController } from './bling.controller';
+import { BlingFilaService } from './bling-fila.service';
 import { BlingService } from './bling.service';
 import { BlingTokenService } from './bling-token.service';
 
@@ -12,6 +13,7 @@ import { BlingTokenService } from './bling-token.service';
   controllers: [BlingController],
   providers: [
     BlingService,
+    BlingFilaService,
     BlingTokenService,
     CryptoEnvelopeService,
     {

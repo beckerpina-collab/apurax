@@ -18,6 +18,7 @@ import { ReformaModule } from './reforma/reforma.module';
 import { ApuracaoFiscalModule } from './apuracao-fiscal/apuracao-fiscal.module';
 import { NfseModule } from './nfse/nfse.module';
 import { BlingModule } from './bling/bling.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { IaModule } from './ia/ia.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -57,6 +58,7 @@ const serveStatic =
     ApuracaoFiscalModule,
     NfseModule,
     BlingModule,
+    DashboardModule,
     IaModule,
   ],
   controllers: [HealthController],

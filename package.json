@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:rls": "prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma",
+    "db:limpar": "ts-node prisma/limpar-dados.ts",
     "seed": "ts-node prisma/seed.ts",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json"
@@ -31,6 +32,7 @@
     "@nestjs/serve-static": "^4.0.2",
     "@prisma/client": "^5.10.0",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.78.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "fast-xml-parser": "^4.3.5",
