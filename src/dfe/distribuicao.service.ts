@@ -157,10 +157,22 @@ export class DistribuicaoService {
     });
   }
 
-  listarCursores() {
-    return this.prisma.scoped.distribuicaoCursor.findMany({
+  /** Normaliza os cursores para o formato consumido pela tela Captura SEFAZ
+   *  ({ modelo, ultimoNSU, maxNSU, ultimaConsulta, status }) — o registro cru
+   *  usa ultNsu/maxNsu/ultimaConsultaEm e não tem 'status'. */
+  async listarCursores() {
+    const cursores = await this.prisma.scoped.distribuicaoCursor.findMany({
       orderBy: { ultimaConsultaEm: 'desc' },
-      include: { empresa: { select: { razaoSocial: true, cnpj: true } } },
     });
+    const agora = Date.now();
+    return cursores.map((c) => ({
+      modelo: c.modelo,
+      ultimoNSU: c.ultNsu,
+      maxNSU: c.maxNsu,
+      ultimaConsulta: c.ultimaConsultaEm ? c.ultimaConsultaEm.toISOString() : null,
+      status: c.bloqueadoAte && c.bloqueadoAte.getTime() > agora ? 'inativo' : 'ativo',
+      ultimoCStat: c.ultimoCStat ?? null,
+      totalDocumentos: c.totalDocumentos,
+    }));
   }
 }

@@ -187,7 +187,7 @@ export default function Captura() {
                     <TableCell className="font-mono text-xs">{c.maxNSU}</TableCell>
                     <TableCell>{dataHoraBR(c.ultimaConsulta)}</TableCell>
                     <TableCell>
-                      <StatusPill status={c.status.toUpperCase()} />
+                      <StatusPill status={(c.status ?? 'inativo').toUpperCase()} />
                     </TableCell>
                   </TableRow>
                 ))}
