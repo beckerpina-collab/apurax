@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -7,7 +8,10 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 async function bootstrap(): Promise<void> {
   // rawBody: true mantém o corpo CRU disponível (req.rawBody) — necessário para
   // validar a assinatura HMAC do webhook do Bling sobre os bytes exatos.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  // Limite de 10mb (padrão do Express é 100kb): NF-e com muitos itens e o PFX
+  // em base64 passam disso. useBodyParser preserva o rawBody do webhook.
+  app.useBodyParser('json', { limit: '10mb' });
 
   // Prefixo global /api: o front e a API moram no mesmo domínio
   // (www.apurax.com.br); o Firebase Hosting reescreve /api/** para o Cloud Run.

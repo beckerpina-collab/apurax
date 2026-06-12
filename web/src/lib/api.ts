@@ -236,7 +236,13 @@ export const api = {
       await delay(700);
       return { ok: true, mensagem: 'Certificado A1 armazenado com segurança (demo).' };
     }
-    return http('/certificados', { method: 'POST', body: JSON.stringify({ empresaId, pfxBase64, senha, notAfter }) });
+    // A API devolve { id, cnpj, tipo, status } — normalizamos com ok:true
+    // (erro vira exceção no http(), nunca chega aqui).
+    const r = await http<{ id: string; cnpj: string; status: string }>('/certificados', {
+      method: 'POST',
+      body: JSON.stringify({ empresaId, pfxBase64, senha, notAfter }),
+    });
+    return { ok: true, mensagem: `Certificado A1 salvo com segurança (CNPJ ${r.cnpj}).` };
   },
 
   async classificarItem(payload: { descricao: string; ncm: string; cfop: string; cstIcms?: string; cstPis?: string; cstCofins?: string }) {
