@@ -279,7 +279,13 @@ export const api = {
   async blingImportarSaidas(empresaId: string, dataInicial: string, dataFinal: string) {
     if (DEMO) {
       await delay(900);
-      return { total: 3, importadas: 3, semXml: 0, erros: [], observacao: 'Importadas como documentos de saída (demo).' };
+      return {
+        total: 3,
+        enfileiradas: 3,
+        jaNaFila: 0,
+        filaPendentes: 3,
+        observacao: 'Notas enfileiradas para importação em segundo plano (demo).',
+      };
     }
     return http('/bling/importar-saidas', { method: 'POST', body: JSON.stringify({ empresaId, dataInicial, dataFinal }) });
   },

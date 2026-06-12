@@ -7,6 +7,8 @@ import {
   rotuloSituacao,
 } from './bling.client';
 import { assinaturaValida, hmacHex, parseEventoNfe } from './bling.webhook';
+import { FilaSequencial } from './fila-sequencial';
+import { RateLimiter } from './rate-limiter';
 
 describe('Bling client (helpers puros)', () => {
   it('monta a URL de autorização com response_type/client_id/state', () => {
@@ -82,5 +84,64 @@ describe('Bling webhook (assinatura + parse)', () => {
     expect(parseEventoNfe(raw)).toEqual({ event: 'invoice.updated', invoiceId: 12345 });
     expect(parseEventoNfe(JSON.stringify({ event: 'product.updated', data: { id: 1 } }))).toBeNull();
     expect(parseEventoNfe('não-json')).toBeNull();
+  });
+});
+
+describe('RateLimiter (limite global do Bling)', () => {
+  it('espaça as chamadas pelo intervalo mínimo', async () => {
+    const rl = new RateLimiter(40);
+    const t0 = Date.now();
+    await rl.aguardar();
+    await rl.aguardar();
+    await rl.aguardar();
+    // 3 chamadas → pelo menos 2 intervalos de 40ms (com folga p/ timer impreciso)
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(70);
+  });
+});
+
+describe('FilaSequencial (processamento em segundo plano)', () => {
+  it('processa em ordem e deduplica itens pendentes', async () => {
+    const vistos: string[] = [];
+    const fila = new FilaSequencial(async (c) => {
+      vistos.push(c);
+    });
+    expect(fila.enfileirar('a')).toBe(true);
+    expect(fila.enfileirar('b')).toBe(true);
+    expect(fila.enfileirar('a')).toBe(false); // dedupe enquanto pendente
+    await new Promise((r) => setTimeout(r, 50));
+    expect(vistos).toEqual(['a', 'b']);
+    expect(fila.tamanho).toBe(0);
+  });
+
+  it('re-tenta após falha transitória e conclui', async () => {
+    let chamadas = 0;
+    const fila = new FilaSequencial(
+      async () => {
+        chamadas += 1;
+        if (chamadas === 1) throw new Error('429 simulado');
+      },
+      { maxTentativas: 3, atrasoRetryMs: 10 },
+    );
+    fila.enfileirar('x');
+    await new Promise((r) => setTimeout(r, 150));
+    expect(chamadas).toBe(2); // falhou 1x, re-tentou e concluiu
+    expect(fila.tamanho).toBe(0);
+  });
+
+  it('desiste após maxTentativas e avisa onErro', async () => {
+    let chamadas = 0;
+    const desistencias: boolean[] = [];
+    const fila = new FilaSequencial(
+      async () => {
+        chamadas += 1;
+        throw new Error('sempre falha');
+      },
+      { maxTentativas: 2, atrasoRetryMs: 10, onErro: (_c, _e, d) => desistencias.push(d) },
+    );
+    fila.enfileirar('y');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(chamadas).toBe(2);
+    expect(desistencias).toEqual([false, true]);
+    expect(fila.tamanho).toBe(0);
   });
 });

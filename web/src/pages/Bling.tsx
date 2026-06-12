@@ -18,6 +18,7 @@ interface BlingStatus {
   conectado: boolean;
   expiraEm: string | null;
   escopos: string[];
+  filaPendentes?: number;
 }
 
 interface NotaSaida {
@@ -42,9 +43,9 @@ interface PuxarSaidasResp {
 
 interface ImportResp {
   total: number;
-  importadas: number;
-  semXml: number;
-  erros?: string[];
+  enfileiradas: number;
+  jaNaFila?: number;
+  filaPendentes?: number;
   observacao: string;
 }
 
@@ -149,7 +150,7 @@ export default function Bling() {
     try {
       const r = (await api.blingImportarSaidas(empresaId, dataInicial, dataFinal)) as ImportResp;
       setImportResultado(r);
-      toast.success(`${r.importadas}/${r.total} nota(s) importada(s) para apuração.`);
+      toast.success(`${r.enfileiradas} de ${r.total} nota(s) enfileirada(s) — importando em segundo plano.`);
     } catch (e: any) {
       toast.error(e?.message ?? 'Falha ao importar as saídas para a apuração.');
     } finally {
@@ -220,6 +221,13 @@ export default function Bling() {
                     <p className="text-sm text-muted-foreground">Nenhum escopo informado.</p>
                   )}
                 </div>
+                {(status.filaPendentes ?? 0) > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    <RefreshCw className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />
+                    Fila de importação: <b>{status.filaPendentes}</b> nota(s) pendente(s) — processando em segundo
+                    plano.
+                  </p>
+                )}
                 <Button variant="outline" size="sm" onClick={conectar} disabled={conectando || !empresaId}>
                   <Plug className="mr-2 h-4 w-4" />
                   Reconectar
@@ -283,11 +291,12 @@ export default function Bling() {
         <Alert className="mt-6">
           <Calculator className="h-4 w-4" />
           <AlertTitle>
-            {importResultado.importadas}/{importResultado.total} notas importadas para apuração
-            {importResultado.semXml ? ` · ${importResultado.semXml} sem XML` : ''}
+            {importResultado.enfileiradas} de {importResultado.total} nota(s) na fila de importação
+            {importResultado.jaNaFila ? ` · ${importResultado.jaNaFila} já estavam na fila` : ''}
           </AlertTitle>
           <AlertDescription>
-            {importResultado.observacao} Em seguida, rode a apuração em <b>Apurações → Imposto a pagar</b>.
+            {importResultado.observacao} Use <b>Atualizar status</b> para acompanhar a fila; quando zerar, rode a
+            apuração em <b>Apurações → Imposto a pagar</b>.
           </AlertDescription>
         </Alert>
       )}

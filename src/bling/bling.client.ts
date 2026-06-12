@@ -11,9 +11,15 @@
 //  - Respostas vêm embrulhadas em { data: ... }; rate limit ~3 req/s (429+Retry-After).
 // ============================================================================
 
+import { RateLimiter } from './rate-limiter';
+
 export const BLING_AUTH = 'https://www.bling.com.br/Api/v3/oauth/authorize';
 export const BLING_API = 'https://api.bling.com.br/Api/v3';
 export const BLING_TOKEN = 'https://api.bling.com.br/Api/v3/oauth/token';
+
+/** Limitador GLOBAL: 1 chamada a cada 400ms (2,5 req/s — folga sob o limite de
+ *  3 req/s do Bling). Webhook, importação manual e token dividem o orçamento. */
+export const blingLimiter = new RateLimiter(400);
 
 export class BlingApiError extends Error {
   constructor(
@@ -49,6 +55,7 @@ async function blingTokenRequest(
   clientSecret: string,
   body: Record<string, string>,
 ): Promise<BlingTokenSet> {
+  await blingLimiter.aguardar();
   const res = await fetch(BLING_TOKEN, {
     method: 'POST',
     headers: {
@@ -104,6 +111,7 @@ export async function blingGet<T = unknown>(
   if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
 
   for (let attempt = 0; ; attempt++) {
+    await blingLimiter.aguardar(); // cada tentativa (inclusive retry de 429) respeita o limite global
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
     });

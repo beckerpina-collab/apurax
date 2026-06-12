@@ -16,14 +16,27 @@ import {
   mapInvoiceToSaida,
 } from './bling.client';
 import { assinaturaValida, parseEventoNfe } from './bling.webhook';
+import { FilaSequencial } from './fila-sequencial';
 
 const PAGE = 100;
 const MAX_NOTAS = 500;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 @Injectable()
 export class BlingService {
   private readonly logger = new Logger(BlingService.name);
+
+  /**
+   * Fila ÚNICA de processamento de notas (webhook + importação manual).
+   * O webhook só enfileira e responde 200 na hora; a vazão é regida pelo
+   * blingLimiter (~2,5 req/s) dentro das chamadas à API. Falha transitória
+   * (429/5xx/rede) volta para o fim da fila e re-tenta até 4x.
+   */
+  private readonly fila = new FilaSequencial((id) => this.processarInvoice(id), {
+    maxTentativas: 4,
+    atrasoRetryMs: 5000,
+    onErro: (id, e, desistiu) =>
+      this.logger.warn(`fila NF ${id}: ${e.message}${desistiu ? ' — desistiu após re-tentativas' : ' — vai re-tentar'}`),
+  });
 
   constructor(
     private readonly prisma: PrismaService,
@@ -46,8 +59,7 @@ export class BlingService {
     return { authorization_url: buildBlingAuthUrl(clientId, state) };
   }
 
-  /** Callback PÚBLICO do Bling. Consome o state, troca o code e grava os tokens.
-   *  Retorna a URL do app para onde redirecionar (sucesso ou erro). */
+  /** Callback PÚBLICO do Bling. Consome o state, troca o code e grava os tokens. */
   async handleCallback(code: string | undefined, state: string | undefined, oauthError?: string): Promise<string> {
     const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:5173';
     const back = (qs: string) => `${appUrl}/bling?${qs}`;
@@ -68,11 +80,12 @@ export class BlingService {
     }
   }
 
-  status(empresaId: string) {
-    return this.token.statusConexao(this.prisma.tenantId, empresaId);
+  async status(empresaId: string) {
+    const s = await this.token.statusConexao(this.prisma.tenantId, empresaId);
+    return { ...s, filaPendentes: this.fila.tamanho };
   }
 
-  /** Lista as NF-e de SAÍDA do período (base do imposto a pagar). */
+  /** Lista as NF-e de SAÍDA do período (pré-visualização; não baixa XML). */
   async puxarSaidas(empresaId: string, dataInicial: string, dataFinal: string) {
     const access = await this.token.accessToken(this.prisma.tenantId, empresaId);
     const notas = await this.coletarSaidas(access, dataInicial, dataFinal);
@@ -85,50 +98,39 @@ export class BlingService {
       totalValor: mapeadas.reduce((s, n) => s + n.valor, 0),
       notas: mapeadas,
       observacao:
-        'Notas de saída listadas do Bling. Os valores de imposto saem da apuração após importar o XML (use "Importar para apuração").',
+        'Notas de saída listadas do Bling. Use "Importar para apuração" para baixar o XML e alimentar o débito (processa em segundo plano).',
     };
   }
 
-  /** Importa o XML de cada NF de saída do período como DocumentoFiscal SAIDA (via
-   *  NfeService.importarSaida) — é o que alimenta o débito de /apuracao. */
-  async importarSaidas(empresaId: string, dataInicial: string, dataFinal: string, usuarioId: string) {
+  /**
+   * Importação por período → SEGUNDO PLANO. Lista os ids das notas (rápido) e
+   * ENFILEIRA cada uma; a resposta volta na hora e o processamento corre na
+   * fila, respeitando o limite do Bling. Acompanhe pelo status (filaPendentes)
+   * e pela tela Documentos.
+   */
+  async importarSaidas(empresaId: string, dataInicial: string, dataFinal: string, _usuarioId?: string) {
     const access = await this.token.accessToken(this.prisma.tenantId, empresaId);
     const notas = await this.coletarSaidas(access, dataInicial, dataFinal);
 
-    let importadas = 0;
-    let semXml = 0;
-    const erros: string[] = [];
-    for (let i = 0; i < notas.length; i++) {
-      if (i > 0) await sleep(450); // rate limit ~3 req/s
-      try {
-        const nf = await getInvoice(access, notas[i].id);
-        const xml = normalizarXml(nf.xml);
-        if (!xml) {
-          semXml += 1;
-          continue;
-        }
-        await this.nfe.importarSaida(empresaId, xml, usuarioId);
-        importadas += 1;
-      } catch (e) {
-        erros.push(`nota ${notas[i].id}: ${(e as Error).message}`);
-      }
+    let enfileiradas = 0;
+    for (const nf of notas) {
+      if (this.fila.enfileirar(String(nf.id))) enfileiradas += 1;
     }
-
     await this.token.marcarSync(this.prisma.tenantId, empresaId).catch(() => undefined);
+
     return {
       total: notas.length,
-      importadas,
-      semXml,
-      erros: erros.slice(0, 10),
+      enfileiradas,
+      jaNaFila: notas.length - enfileiradas,
+      filaPendentes: this.fila.tamanho,
       observacao:
-        'Saídas importadas como documentos fiscais. Rode /apuracao/{icms,ipi,pis-cofins} para o imposto a pagar da competência. [Campo xml do Bling: validar formato — cru ou base64.]',
+        'Importação em segundo plano: as notas entram como documentos de saída conforme a fila avança (~2 notas/segundo, limite do Bling). Acompanhe em Documentos e depois rode /apuracao.',
     };
   }
 
   // ----- Webhook (PÚBLICO) ---------------------------------------------------
 
-  /** Processa um webhook do Bling. Valida a assinatura HMAC do corpo CRU; em
-   *  evento de NF-e, resolve o dono por prova de posse e importa como saída. */
+  /** Valida a assinatura HMAC e ENFILEIRA o processamento (responde na hora). */
   async handleWebhook(raw: string, signature: string | undefined): Promise<{ ok: boolean }> {
     const secret = this.token.clientSecret();
     if (!secret) {
@@ -140,17 +142,16 @@ export class BlingService {
     }
     const ev = parseEventoNfe(raw);
     if (ev) {
-      try {
-        await this.processarInvoice(ev.invoiceId);
-      } catch (e) {
-        this.logger.error(`webhook invoice ${ev.invoiceId}: ${(e as Error).message}`);
-      }
+      this.fila.enfileirar(String(ev.invoiceId));
     }
     return { ok: true };
   }
 
-  /** Resolve a conexão dona da NF por PROVA DE POSSE (o token só enxerga notas
-   *  da própria empresa no Bling) e importa o XML como saída. */
+  /**
+   * Resolve a conexão dona da NF por PROVA DE POSSE e importa o XML como saída.
+   * 404/403 = "não é desta conta" → tenta a próxima conexão. Qualquer outra
+   * falha (429/5xx/rede) é LANÇADA para a fila re-tentar — antes, era descartada.
+   */
   private async processarInvoice(invoiceId: number | string): Promise<void> {
     const conexoes = await this.token.listarAtivas();
     for (const cx of conexoes) {
@@ -165,8 +166,7 @@ export class BlingService {
         nf = await getInvoice(access, invoiceId);
       } catch (e) {
         if (e instanceof BlingApiError && (e.status === 404 || e.status === 403)) continue; // não é desta conta
-        this.logger.warn(`webhook getInvoice ${invoiceId}: ${(e as Error).message}`);
-        continue;
+        throw e; // 429/5xx/rede → re-tenta via fila
       }
       const xml = normalizarXml(nf.xml);
       if (xml) {
@@ -174,25 +174,26 @@ export class BlingService {
           this.cls.set('tenantId', cx.tenantId);
           await this.nfe
             .importarSaida(cx.empresaId, xml)
-            .catch((e) => this.logger.warn(`webhook importarSaida: ${(e as Error).message}`));
+            .catch((e) => this.logger.warn(`importarSaida NF ${invoiceId}: ${(e as Error).message}`));
         });
+      } else {
+        this.logger.warn(`NF ${invoiceId} sem XML utilizável na resposta do Bling.`);
       }
       await this.token.marcarSync(cx.tenantId, cx.empresaId).catch(() => undefined);
       return; // dono encontrado
     }
-    this.logger.warn(`webhook: nenhuma conexão dona da NF ${invoiceId}`);
+    this.logger.warn(`NF ${invoiceId}: nenhuma conexão dona (404/403 em todas).`);
   }
 
   // ----- internos ------------------------------------------------------------
 
-  /** Coleta as NF de saída do período (paginado, respeitando o rate limit). */
+  /** Coleta as NF de saída do período (paginado; o blingLimiter rege o ritmo). */
   private async coletarSaidas(access: string, dataInicial: string, dataFinal: string): Promise<BlingInvoice[]> {
     const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
     const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
     const notas: BlingInvoice[] = [];
     let pagina = 1;
     while (notas.length < MAX_NOTAS) {
-      if (pagina > 1) await sleep(350);
       const lote = (await listInvoices(access, {
         pagina,
         limite: PAGE,
