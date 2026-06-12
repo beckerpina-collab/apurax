@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CertificadoService } from './certificado.service';
@@ -17,6 +17,12 @@ export class DfeController {
   @Post('certificados')
   armazenar(@Body() dto: ArmazenarCertificadoDto) {
     return this.certificados.armazenar(dto.empresaId, dto.pfxBase64, dto.senha, dto.notAfter);
+  }
+
+  /** Metadados do certificado ATIVO da empresa (para a tela de Configuração). */
+  @Get('certificados/atual')
+  atual(@Query('empresaId', ParseUUIDPipe) empresaId: string) {
+    return this.certificados.atual(empresaId);
   }
 
   @Roles(Role.ADMIN, Role.CONTADOR)

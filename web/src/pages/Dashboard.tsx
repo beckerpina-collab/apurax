@@ -7,14 +7,19 @@ import StatCard from '@/components/StatCard';
 import StatusPill from '@/components/StatusPill';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '../lib/api';
 import { brl } from '../lib/format';
 import { DASHBOARD, type Apuracao } from '../lib/mock';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
+type Resumo = typeof DASHBOARD;
+
 export default function Dashboard() {
-  const [d, setD] = useState(DASHBOARD);
+  // null = ainda carregando (NUNCA iniciar com dados de exemplo — em produção
+  // eles "piscavam" na tela antes dos números reais chegarem).
+  const [d, setD] = useState<Resumo | null>(null);
   const [apur, setApur] = useState<Apuracao[]>([]);
   const [ano, setAno] = useState('todos');
   const [mes, setMes] = useState('todos');
@@ -30,11 +35,11 @@ export default function Dashboard() {
     api.apuracoes().then(setApur).catch(() => undefined);
   }, []);
 
-  const anos = d.anosDisponiveis ?? [];
+  const anos = d?.anosDisponiveis ?? [];
 
   return (
     <div>
-      <PageHeader title="Painel" description={`Visão fiscal — ${d.competencia}`}>
+      <PageHeader title="Painel" description={d ? `Visão fiscal — ${d.competencia}` : 'Carregando os números…'}>
         <Select
           value={ano}
           onValueChange={(v) => {
@@ -69,6 +74,17 @@ export default function Dashboard() {
         </Select>
       </PageHeader>
 
+      {!d ? (
+        <>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-[120px] rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-[340px] rounded-xl" />
+        </>
+      ) : (
+        <>
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Crédito sugerido" value={brl(d.creditoSugerido)} subtitle="aguardando homologação" icon={TrendingUp} variant="primary" />
         <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="débito − crédito do período" icon={Receipt} />
@@ -131,6 +147,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
     </div>
   );
 }

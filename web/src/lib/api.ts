@@ -245,6 +245,21 @@ export const api = {
     return { ok: true, mensagem: `Certificado A1 salvo com segurança (CNPJ ${r.cnpj}).` };
   },
 
+  async certificadoAtual(empresaId: string): Promise<{
+    id: string;
+    cnpj: string;
+    tipo: string;
+    status: string;
+    notAfter: string | null;
+    criadoEm: string;
+  } | null> {
+    if (DEMO) {
+      await delay();
+      return { id: 'demo', cnpj: '11111111000111', tipo: 'A1', status: 'ATIVO', notAfter: null, criadoEm: new Date().toISOString() };
+    }
+    return http(`/certificados/atual?empresaId=${encodeURIComponent(empresaId)}`);
+  },
+
   async classificarItem(payload: { descricao: string; ncm: string; cfop: string; cstIcms?: string; cstPis?: string; cstCofins?: string }) {
     if (DEMO) {
       await delay(700);

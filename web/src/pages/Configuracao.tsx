@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Settings, Building2, ShieldCheck, ShieldAlert, Plug, RefreshCw, BadgeCheck, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,10 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 import { api } from '@/lib/api';
-import { cnpjMask } from '@/lib/format';
+import { cnpjMask, dataBR, dataHoraBR } from '@/lib/format';
 import { useEmpresa } from '@/lib/empresa-context';
 
 const REDIRECT_URI_PADRAO = 'https://app.apurax.com.br/integracoes/bling/callback';
+
+type CertInfo = NonNullable<Awaited<ReturnType<typeof api.certificadoAtual>>>;
 
 export default function Configuracao() {
   const { empresa, empresaId } = useEmpresa();
@@ -25,6 +27,24 @@ export default function Configuracao() {
   const [pfxNome, setPfxNome] = useState<string>('');
   const [senha, setSenha] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [certAtual, setCertAtual] = useState<CertInfo | null>(null);
+  const [certCarregando, setCertCarregando] = useState(false);
+
+  async function carregarCertificado(id: string) {
+    setCertCarregando(true);
+    try {
+      setCertAtual(await api.certificadoAtual(id));
+    } catch {
+      setCertAtual(null);
+    } finally {
+      setCertCarregando(false);
+    }
+  }
+
+  useEffect(() => {
+    setCertAtual(null);
+    if (empresaId) carregarCertificado(empresaId);
+  }, [empresaId]);
 
   function aoEscolherArquivo(e: ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
@@ -63,6 +83,9 @@ export default function Configuracao() {
       if (r.ok) {
         toast.success(r.mensagem ?? 'Certificado A1 salvo com segurança.');
         setSenha('');
+        setPfxBase64(null);
+        setPfxNome('');
+        await carregarCertificado(empresaId); // atualiza o painel de status
       } else {
         toast.error(r.mensagem ?? 'Não foi possível salvar o certificado.');
       }
@@ -142,6 +165,31 @@ export default function Configuracao() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Status do certificado salvo */}
+            {certCarregando ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Consultando certificado…
+              </p>
+            ) : certAtual ? (
+              <div className="rounded-lg border border-emerald-300/60 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/40">
+                <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                  <BadgeCheck className="h-4 w-4" />
+                  Certificado {certAtual.tipo} ativo para esta empresa
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  CNPJ {cnpjMask(certAtual.cnpj)} · salvo em {dataHoraBR(certAtual.criadoEm)}
+                  {certAtual.notAfter ? ` · válido até ${dataBR(certAtual.notAfter)}` : ''}. Enviar um novo arquivo
+                  substitui o atual.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3">
+                <p className="text-sm text-muted-foreground">
+                  Nenhum certificado salvo para esta empresa ainda. Envie o arquivo .pfx/.p12 abaixo.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="pfx">Arquivo do certificado (.pfx / .p12)</Label>
               <Input id="pfx" type="file" accept=".pfx,.p12" onChange={aoEscolherArquivo} />

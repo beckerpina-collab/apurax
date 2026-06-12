@@ -43,6 +43,16 @@ export class CertificadoService {
     return { id: cert.id, cnpj: cert.cnpj, tipo: cert.tipo, status: cert.status };
   }
 
+  /** Metadados do certificado ATIVO da empresa (nunca o material cifrado). */
+  async atual(empresaId: string) {
+    const cert = await this.prisma.scoped.certificadoDigital.findFirst({
+      where: { empresaId, status: 'ATIVO' },
+      orderBy: { criadoEm: 'desc' },
+      select: { id: true, cnpj: true, tipo: true, status: true, notAfter: true, criadoEm: true },
+    });
+    return cert ?? null;
+  }
+
   /**
    * Descriptografa o certificado ativo da empresa EM MEMÓRIA, para uso imediato.
    * O chamador DEVE zerar o `pfx` após usar (`pfx.fill(0)`). Cada uso é auditado.
