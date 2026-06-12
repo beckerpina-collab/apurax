@@ -24,6 +24,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Muitos certificados A1 brasileiros usam algoritmos PKCS#12 legados (RC2/3DES)
+      # que o OpenSSL 3 (Node 20) desabilita por padrão. Habilita o provider legado.
+      - key: NODE_OPTIONS
+        value: --openssl-legacy-provider
       - key: SERVE_STATIC
         value: "true"
       - key: APURAX_DFE_TPAMB
