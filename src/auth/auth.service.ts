@@ -20,7 +20,7 @@ export class AuthService {
     if (!usuario || !(await bcrypt.compare(senha, usuario.senhaHash))) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
-    return this.sessao(usuario);
+    return this.gerarSessao(usuario);
   }
 
   /**
@@ -43,8 +43,7 @@ export class AuthService {
       data: { tenantId: tenant.id, email: dto.email, senhaHash, nome: dto.nome, role: 'ADMIN' },
     });
 
-    // empresa está sob RLS → cria no contexto do tenant recém-criado (forTenant
-    // seta o GUC app.current_tenant na transação).
+    // empresa está sob RLS → cria no contexto do tenant recém-criado.
     await this.prisma.forTenant(tenant.id).empresa.create({
       data: {
         tenantId: tenant.id,
@@ -55,18 +54,46 @@ export class AuthService {
       },
     });
 
-    return this.sessao(usuario);
+    return this.gerarSessao(usuario);
   }
 
-  /** Monta o token + os dados de sessão (mesmo formato do login). */
-  private async sessao(usuario: Usuario) {
-    const payload = { sub: usuario.id, tenantId: usuario.tenantId, role: usuario.role, email: usuario.email };
-    const accessToken = await this.jwt.signAsync(payload, {
-      secret: this.config.get<string>('JWT_SECRET') ?? 'dev-secret',
-      expiresIn: this.config.get<string>('JWT_ACCESS_TTL') ?? '15m',
-    });
+  /**
+   * Troca um refresh token válido por uma nova sessão (access + refresh novos —
+   * rotação). Usado pelo front quando o access expira, de forma transparente.
+   */
+  async refresh(refreshToken: string) {
+    let payload: { sub?: string; type?: string };
+    try {
+      payload = await this.jwt.verifyAsync(refreshToken, { secret: this.refreshSecret() });
+    } catch {
+      throw new UnauthorizedException('Sessão expirada. Faça login novamente.');
+    }
+    if (payload.type !== 'refresh' || !payload.sub) {
+      throw new UnauthorizedException('Token de atualização inválido.');
+    }
+    const usuario = await this.prisma.usuario.findFirst({ where: { id: payload.sub, ativo: true } });
+    if (!usuario) {
+      throw new UnauthorizedException('Usuário não encontrado ou inativo.');
+    }
+    return this.gerarSessao(usuario);
+  }
+
+  /** Monta access (curto) + refresh (longo) + dados de sessão. */
+  private async gerarSessao(usuario: Usuario) {
+    const accessToken = await this.jwt.signAsync(
+      { sub: usuario.id, tenantId: usuario.tenantId, role: usuario.role, email: usuario.email },
+      {
+        secret: this.config.get<string>('JWT_SECRET') ?? 'dev-secret',
+        expiresIn: this.config.get<string>('JWT_ACCESS_TTL') ?? '15m',
+      },
+    );
+    const refreshToken = await this.jwt.signAsync(
+      { sub: usuario.id, type: 'refresh' },
+      { secret: this.refreshSecret(), expiresIn: this.config.get<string>('JWT_REFRESH_TTL') ?? '30d' },
+    );
     return {
       accessToken,
+      refreshToken,
       usuario: {
         id: usuario.id,
         nome: usuario.nome,
@@ -75,5 +102,13 @@ export class AuthService {
         tenantId: usuario.tenantId,
       },
     };
+  }
+
+  /** Segredo do refresh: usa JWT_REFRESH_SECRET se houver; senão deriva do JWT_SECRET. */
+  private refreshSecret(): string {
+    return (
+      this.config.get<string>('JWT_REFRESH_SECRET') ??
+      `${this.config.get<string>('JWT_SECRET') ?? 'dev-secret'}-refresh`
+    );
   }
 }

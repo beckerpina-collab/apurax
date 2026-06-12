@@ -19,11 +19,21 @@ const DEMO = import.meta.env.VITE_DEMO !== 'false';
 // Em dev, o backend atende em http://localhost:3000/api.
 const API_URL = (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3000/api';
 const TOKEN_KEY = 'apurax_token';
+const REFRESH_KEY = 'apurax_refresh';
+const USER_KEY = 'apurax_user';
 
 export const isDemo = DEMO;
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string) => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+export const getRefresh = () => localStorage.getItem(REFRESH_KEY);
+export const setRefresh = (t: string) => localStorage.setItem(REFRESH_KEY, t);
+/** Limpa toda a sessão (logout ou refresh expirado). */
+export const clearSession = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(USER_KEY);
+};
 
 export interface Usuario {
   nome: string;
@@ -45,7 +55,41 @@ export interface RegistrarPayload {
 export type ModeloDoc = 'nfe' | 'cte' | 'nfse';
 export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss';
 
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
+// Renovação de token compartilhada: várias chamadas que tomem 401 ao mesmo
+// tempo disparam UM único /auth/refresh e aguardam o mesmo resultado.
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccess(): Promise<string | null> {
+  const rt = getRefresh();
+  if (!rt) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    })
+      .then(async (r) => {
+        if (!r.ok) return null;
+        const d = (await r.json()) as { accessToken?: string; refreshToken?: string };
+        if (d.accessToken) setToken(d.accessToken);
+        if (d.refreshToken) setRefresh(d.refreshToken);
+        return d.accessToken ?? null;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+/** Sessão acabou (refresh inválido/expirado): limpa tudo e volta ao login. */
+function encerrarSessao(): void {
+  clearSession();
+  if (!location.pathname.startsWith('/login')) location.assign('/login');
+}
+
+async function http<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
@@ -54,6 +98,15 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
+
+  // Access token expirou → tenta renovar com o refresh (1x) e repete a chamada.
+  if (res.status === 401 && retry && getRefresh()) {
+    const novoAccess = await refreshAccess();
+    if (novoAccess) return http<T>(path, init, false);
+    encerrarSessao();
+    throw new Error('Sessão expirada. Faça login novamente.');
+  }
+
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: unknown };
     const m = body.message;
@@ -85,11 +138,12 @@ export const api = {
       setToken('demo-token');
       return { usuario: { nome: 'Admin Demo', email: 'admin@apurax.local', role: 'ADMIN' } };
     }
-    const r = await http<{ accessToken: string; usuario: Usuario }>('/auth/login', {
+    const r = await http<{ accessToken: string; refreshToken?: string; usuario: Usuario }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, senha }),
     });
     setToken(r.accessToken);
+    if (r.refreshToken) setRefresh(r.refreshToken);
     return { usuario: r.usuario };
   },
 
@@ -99,11 +153,12 @@ export const api = {
       setToken('demo-token');
       return { usuario: { nome: payload.nome, email: payload.email, role: 'ADMIN' } };
     }
-    const r = await http<{ accessToken: string; usuario: Usuario }>('/auth/registrar', {
+    const r = await http<{ accessToken: string; refreshToken?: string; usuario: Usuario }>('/auth/registrar', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
     setToken(r.accessToken);
+    if (r.refreshToken) setRefresh(r.refreshToken);
     return { usuario: r.usuario };
   },
 

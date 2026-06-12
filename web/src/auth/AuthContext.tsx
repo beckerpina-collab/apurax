@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { api, clearToken, getToken, type RegistrarPayload, type Usuario } from '../lib/api';
+import { api, clearSession, getToken, type RegistrarPayload, type Usuario } from '../lib/api';
 
 interface AuthState {
   usuario: Usuario | null;
@@ -36,8 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUsuario(u);
       },
       logout() {
-        clearToken();
-        localStorage.removeItem(USER_KEY);
+        clearSession();
         setUsuario(null);
       },
     }),
