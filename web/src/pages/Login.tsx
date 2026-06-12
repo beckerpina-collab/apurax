@@ -1,6 +1,6 @@
 import { Landmark, ShieldCheck, TrendingUp, Truck } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,6 +97,13 @@ export default function Login() {
           <Button type="submit" className="w-full" disabled={carregando}>
             {carregando ? 'Entrando…' : 'Entrar'}
           </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Não tem conta?{' '}
+            <Link to="/cadastro" className="font-medium text-primary hover:underline">
+              Criar conta
+            </Link>
+          </p>
 
           {isDemo && (
             <p className="rounded-lg bg-muted px-3 py-2 text-center text-xs text-muted-foreground">

@@ -31,6 +31,17 @@ export interface Usuario {
   role: string;
 }
 
+export interface RegistrarPayload {
+  nome: string;
+  email: string;
+  senha: string;
+  nomeConta?: string;
+  cnpj: string;
+  razaoSocial: string;
+  regimeTributario: 'LUCRO_REAL' | 'LUCRO_PRESUMIDO' | 'SIMPLES_NACIONAL';
+  uf: string;
+}
+
 export type ModeloDoc = 'nfe' | 'cte' | 'nfse';
 export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss';
 
@@ -71,6 +82,20 @@ export const api = {
     const r = await http<{ accessToken: string; usuario: Usuario }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, senha }),
+    });
+    setToken(r.accessToken);
+    return { usuario: r.usuario };
+  },
+
+  async registrar(payload: RegistrarPayload): Promise<{ usuario: Usuario }> {
+    if (DEMO) {
+      await delay(700);
+      setToken('demo-token');
+      return { usuario: { nome: payload.nome, email: payload.email, role: 'ADMIN' } };
+    }
+    const r = await http<{ accessToken: string; usuario: Usuario }>('/auth/registrar', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
     setToken(r.accessToken);
     return { usuario: r.usuario };

@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import { EmpresaProvider } from './lib/empresa-context';
 import Apuracoes from './pages/Apuracoes';
 import Bling from './pages/Bling';
+import Cadastro from './pages/Cadastro';
 import Captura from './pages/Captura';
 import Configuracao from './pages/Configuracao';
 import Dashboard from './pages/Dashboard';
@@ -26,6 +27,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
           <Route
             element={
               <Protegido>

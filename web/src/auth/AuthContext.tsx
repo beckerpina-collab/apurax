@@ -1,10 +1,11 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { api, clearToken, getToken, type Usuario } from '../lib/api';
+import { api, clearToken, getToken, type RegistrarPayload, type Usuario } from '../lib/api';
 
 interface AuthState {
   usuario: Usuario | null;
   autenticado: boolean;
   login: (email: string, senha: string) => Promise<void>;
+  registrar: (payload: RegistrarPayload) => Promise<void>;
   logout: () => void;
 }
 
@@ -26,6 +27,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       autenticado: !!usuario,
       async login(email, senha) {
         const { usuario: u } = await api.login(email, senha);
+        localStorage.setItem(USER_KEY, JSON.stringify(u));
+        setUsuario(u);
+      },
+      async registrar(payload) {
+        const { usuario: u } = await api.registrar(payload);
         localStorage.setItem(USER_KEY, JSON.stringify(u));
         setUsuario(u);
       },
