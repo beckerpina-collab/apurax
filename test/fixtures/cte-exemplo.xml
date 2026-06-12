@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CT-e (modelo 57) de exemplo. Frete sobre compra: tomador = destinatário
+     (toma3.toma=3) = empresa Lucro Real do seed (CNPJ 11111111000111).
+     ICMS00 com vICMS 180,00 destacado -> crédito do frete ao tomador. -->
+<cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte">
+  <CTe>
+    <infCte Id="CTe35260233333333000133570010000000011000000010" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <CFOP>6352</CFOP>
+        <natOp>PRESTACAO DE SERVICO DE TRANSPORTE</natOp>
+        <mod>57</mod>
+        <serie>1</serie>
+        <nCT>1</nCT>
+        <dhEmi>2026-02-12T10:00:00-03:00</dhEmi>
+        <tpCTe>0</tpCTe>
+        <tpServ>0</tpServ>
+        <UFIni>RJ</UFIni>
+        <UFFim>SP</UFFim>
+        <toma3>
+          <toma>3</toma>
+        </toma3>
+      </ide>
+      <emit>
+        <CNPJ>33333333000133</CNPJ>
+        <xNome>Transportadora Rapida Ltda</xNome>
+      </emit>
+      <rem>
+        <CNPJ>99999999000199</CNPJ>
+        <xNome>Fornecedor Industria Ltda</xNome>
+      </rem>
+      <dest>
+        <CNPJ>11111111000111</CNPJ>
+        <xNome>Comercio Lucro Real Ltda</xNome>
+      </dest>
+      <vPrest>
+        <vTPrest>1500.00</vTPrest>
+        <vRec>1500.00</vRec>
+      </vPrest>
+      <imp>
+        <ICMS>
+          <ICMS00>
+            <CST>00</CST>
+            <vBC>1500.00</vBC>
+            <pICMS>12.00</pICMS>
+            <vICMS>180.00</vICMS>
+          </ICMS00>
+        </ICMS>
+      </imp>
+    </infCte>
+  </CTe>
+</cteProc>

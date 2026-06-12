@@ -1,0 +1,48 @@
+# ============================================================================
+# Render Blueprint — Apurax (1 serviço: NestJS serve API /api + front estático)
+# + Postgres gerenciado. Conecte o repositório no Render e ele lê este arquivo.
+# Região 'virginia' (US-leste, mais perto do Brasil). web e db na MESMA região.
+# ============================================================================
+services:
+  - type: web
+    name: apurax-api
+    runtime: docker
+    region: virginia
+    plan: starter            # US$7/mês, sempre ligado, 512MB
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_STATIC
+        value: "true"
+      - key: APURAX_DFE_TPAMB
+        value: "2"
+      - key: BLING_CLIENT_ID
+        value: af3f0b0addf6523c8be167b6c47f20a474fc2d4b
+      - key: BLING_REDIRECT_URI
+        value: https://www.apurax.com.br/api/bling/callback
+      - key: APP_URL
+        value: https://www.apurax.com.br
+      # DATABASE_URL injetada automaticamente pelo Postgres abaixo (URL interna).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: apurax-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true          # Render gera um segredo forte
+      # Definidos MANUALMENTE no painel (Environment) — não ficam no blueprint:
+      - key: APURAX_KMS_MASTER_KEY
+        sync: false                  # chave de custódia (defina ANTES de conectar o Bling)
+      - key: BLING_CLIENT_SECRET
+        sync: false                  # o client_secret do app Bling
+      - key: ANTHROPIC_API_KEY
+        sync: false                  # opcional (validador de NCM real)
+
+databases:
+  - name: apurax-db
+    plan: basic-256mb         # se o Render recusar o nome do plano, escolha um atual no painel
+    databaseName: apurax
+    region: virginia

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+# arquivos fiscais sensíveis (XML, certificados) nunca versionados
+/storage/
+*.pfx
+*.p12

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NF-e de entrada de 2026 com DUPLA CONFORMIDADE: grupos legados
+     (ICMS00/PIS01/COFINS01) + o novo grupo IBSCBS (CST 000, alíquotas-teste). -->
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe35260211111111000111550010000000021000000024" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <natOp>COMPRA PARA REVENDA</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>2</nNF>
+        <dhEmi>2026-08-10T09:00:00-03:00</dhEmi>
+        <tpNF>1</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>99999999000199</CNPJ>
+        <xNome>Fornecedor Industria Ltda</xNome>
+      </emit>
+      <dest>
+        <CNPJ>11111111000111</CNPJ>
+        <xNome>Comercio Lucro Real Ltda</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>A1</cProd>
+          <xProd>MERCADORIA PARA REVENDA</xProd>
+          <NCM>72106900</NCM>
+          <CFOP>1102</CFOP>
+          <qCom>10.0000</qCom>
+          <vUnCom>100.00</vUnCom>
+          <vProd>1000.00</vProd>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMS00>
+              <orig>0</orig>
+              <CST>00</CST>
+              <vBC>1000.00</vBC>
+              <pICMS>18.00</pICMS>
+              <vICMS>180.00</vICMS>
+            </ICMS00>
+          </ICMS>
+          <PIS>
+            <PISAliq><CST>01</CST><vBC>1000.00</vBC><pPIS>1.65</pPIS><vPIS>16.50</vPIS></PISAliq>
+          </PIS>
+          <COFINS>
+            <COFINSAliq><CST>01</CST><vBC>1000.00</vBC><pCOFINS>7.60</pCOFINS><vCOFINS>76.00</vCOFINS></COFINSAliq>
+          </COFINS>
+          <IBSCBS>
+            <CST>000</CST>
+            <cClassTrib>000001</cClassTrib>
+            <gIBSCBS>
+              <vBC>1000.00</vBC>
+              <gIBSUF><pIBSUF>0.1000</pIBSUF><vIBSUF>1.00</vIBSUF></gIBSUF>
+              <gIBSMun><pIBSMun>0.0000</pIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun>
+              <vIBS>1.00</vIBS>
+              <gCBS><pCBS>0.9000</pCBS><vCBS>9.00</vCBS></gCBS>
+            </gIBSCBS>
+          </IBSCBS>
+        </imposto>
+      </det>
+      <total>
+        <ICMSTot><vProd>1000.00</vProd><vICMS>180.00</vICMS><vNF>1000.00</vNF></ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

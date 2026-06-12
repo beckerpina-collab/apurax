@@ -1,0 +1,553 @@
+// ============================================================================
+// APURAX — schema de dados
+//
+// Princípios:
+//  - Multi-tenant: TODA tabela tenant-scoped carrega `tenantId`. O isolamento é
+//    enforçado por Row-Level Security do Postgres (ver prisma/rls.sql) + o
+//    contexto de tenant setado por transação (PrismaService.scoped()).
+//  - Auditabilidade fiscal: o crédito (ApuracaoCredito) sempre aponta para a
+//    RegraCredito aplicada + a base legal, e a AuditoriaEvento é append-only
+//    com encadeamento por hash.
+//  - Regras versionadas por vigência: RegraCredito tem vigenciaInicio/Fim, de
+//    modo que a MESMA nota gera crédito conforme a legislação vigente na data —
+//    o que sustenta o futuro dual-regime (legado x CBS/IBS).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum RegimeTributario {
+  LUCRO_REAL // não-cumulativo: TEM crédito de PIS/COFINS
+  LUCRO_PRESUMIDO // cumulativo: SEM crédito de PIS/COFINS
+  SIMPLES_NACIONAL // recolhe no DAS: SEM crédito ordinário (ICMS/PIS/COFINS)
+}
+
+enum Role {
+  ADMIN
+  CONTADOR
+  CLIENTE
+}
+
+enum Tributo {
+  ICMS
+  PIS
+  COFINS
+  CBS // reforma — usado nas etapas futuras (dual-regime)
+  IBS // reforma — usado nas etapas futuras (dual-regime)
+}
+
+enum TipoOperacao {
+  ENTRADA
+  SAIDA
+}
+
+enum StatusDocumento {
+  IMPORTADO
+  PROCESSADO
+  ERRO
+}
+
+// Ciclo de vida do crédito: a IA/motor SUGERE, o humano HOMOLOGA, o que não
+// procede é GLOSADO. Só HOMOLOGADO vira número fiscal oficial.
+enum StatusApuracao {
+  SUGERIDO
+  HOMOLOGADO
+  GLOSADO
+}
+
+enum StatusCompetencia {
+  ABERTA
+  FECHADA
+}
+
+// ----------------------------------------------------------------------------
+// Identidade / tenant
+// ----------------------------------------------------------------------------
+
+model Tenant {
+  id       String   @id @default(uuid()) @db.Uuid
+  nome     String
+  criadoEm DateTime @default(now())
+
+  usuarios   Usuario[]
+  empresas   Empresa[]
+  documentos DocumentoFiscal[]
+  itens      ItemDocumento[]
+  apuracoes  ApuracaoCredito[]
+  auditoria  AuditoriaEvento[]
+  competencias Competencia[]
+  importacoesSped ImportacaoSped[]
+  lacunas    LacunaCredito[]
+  certificados CertificadoDigital[]
+  cursores   DistribuicaoCursor[]
+  apuracoesImposto ApuracaoImposto[]
+  notasServico NotaServico[]
+  blingConexoes BlingConexao[]
+  blingStates   BlingOAuthState[]
+
+  @@map("tenant")
+}
+
+model Usuario {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  email     String
+  senhaHash String
+  nome      String
+  role      Role     @default(CONTADOR)
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("usuario")
+}
+
+// Empresa-cliente (CNPJ analisado). O regime tributário é o ROTEADOR do produto:
+// define se há ou não crédito de PIS/COFINS.
+model Empresa {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @db.Uuid
+  cnpj             String
+  razaoSocial      String
+  regimeTributario RegimeTributario
+  uf               String           @db.Char(2)
+  criadoEm         DateTime         @default(now())
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentos      DocumentoFiscal[]
+  competencias    Competencia[]
+  importacoesSped ImportacaoSped[]
+  certificados    CertificadoDigital[]
+  cursores        DistribuicaoCursor[]
+  apuracoesImposto ApuracaoImposto[]
+  notasServico    NotaServico[]
+  blingConexoes   BlingConexao[]
+  blingStates     BlingOAuthState[]
+
+  @@unique([tenantId, cnpj])
+  @@index([tenantId])
+  @@map("empresa")
+}
+
+// ----------------------------------------------------------------------------
+// Documento fiscal (NF-e de entrada) + itens
+// ----------------------------------------------------------------------------
+
+model DocumentoFiscal {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  empresaId       String          @db.Uuid
+  chaveAcesso     String          @db.Char(44)
+  modelo          String          @default("55")
+  numero          String
+  serie           String
+  dataEmissao     DateTime
+  tipoOperacao    TipoOperacao
+  emitenteCnpj    String
+  emitenteNome    String
+  destinatarioCnpj String
+  tomadorCnpj     String? // CT-e (modelo 57): CNPJ do tomador do serviço (toma3/toma4)
+  valorTotal      Decimal         @db.Decimal(18, 2)
+  xmlPath         String? // caminho no storage do XML bruto (valor legal)
+  status          StatusDocumento @default(IMPORTADO)
+  criadoEm        DateTime        @default(now())
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa   Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  itens     ItemDocumento[]
+  apuracoes ApuracaoCredito[]
+
+  @@unique([tenantId, chaveAcesso])
+  @@index([tenantId, empresaId])
+  @@index([tenantId, dataEmissao])
+  @@map("documento_fiscal")
+}
+
+model ItemDocumento {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  documentoId String  @db.Uuid
+  numItem     Int
+  codProduto  String
+  descricao   String
+  ncm         String
+  cfop        String
+  quantidade  Decimal @db.Decimal(18, 4)
+  valorProduto Decimal @db.Decimal(18, 2)
+
+  // ICMS
+  cstIcms     String? // CST (regime normal) — ex.: 00,10,20,40,41,50,51,60,70,90
+  csosn       String? // CSOSN (Simples emitente) — ex.: 101,102,201,202,500,900
+  vBcIcms     Decimal? @db.Decimal(18, 2)
+  vIcms       Decimal? @db.Decimal(18, 2) // ICMS da operação própria (creditável)
+  vIcmsSt     Decimal? @db.Decimal(18, 2) // ICMS-ST (NÃO gera crédito ordinário)
+  vCredIcmsSn Decimal? @db.Decimal(18, 2) // crédito de ICMS permitido pelo Simples (CSOSN 101/201)
+
+  // PIS
+  cstPis String?  // CST do emitente (01 trib., 04 monofásico, 06 alíq.zero, ...)
+  vBcPis Decimal? @db.Decimal(18, 2)
+  vPis   Decimal? @db.Decimal(18, 2)
+
+  // COFINS
+  cstCofins String?
+  vBcCofins Decimal? @db.Decimal(18, 2)
+  vCofins   Decimal? @db.Decimal(18, 2)
+
+  // IPI (CST saída 50 = débito; CST entrada 00 = crédito)
+  cstIpi String?
+  vIpi   Decimal? @db.Decimal(18, 2)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documento DocumentoFiscal   @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  apuracoes ApuracaoCredito[]
+
+  @@index([tenantId, documentoId])
+  @@map("item_documento")
+}
+
+// ----------------------------------------------------------------------------
+// Regras de crédito — tabela de referência GLOBAL (não tenant-scoped),
+// versionada por vigência. O motor determinístico resolve a regra aplicável e
+// o crédito sempre cita a `baseLegal` da regra usada.
+// ----------------------------------------------------------------------------
+
+model RegraCredito {
+  id             String    @id @default(uuid()) @db.Uuid
+  codigo         String    @unique // ex.: R-ICMS-CRED-001
+  tributo        Tributo
+  descricao      String
+  baseLegal      String
+  // condição estruturada avaliada pelo motor (cstIn, csosnIn, regimeIn,
+  // regimeNotIn, campoValor, creditoPermitido). Ver motor-credito.types.ts
+  condicao       Json
+  prioridade     Int       @default(100) // menor = avaliada antes
+  vigenciaInicio DateTime
+  vigenciaFim    DateTime? // null = vigente por prazo indeterminado
+  ativo          Boolean   @default(true)
+
+  apuracoes ApuracaoCredito[]
+
+  @@index([tributo, vigenciaInicio])
+  @@map("regra_credito")
+}
+
+// ----------------------------------------------------------------------------
+// Apuração do crédito por item/tributo — a saída auditável do motor.
+// ----------------------------------------------------------------------------
+
+model ApuracaoCredito {
+  id               String         @id @default(uuid()) @db.Uuid
+  tenantId         String         @db.Uuid
+  documentoId      String         @db.Uuid
+  itemId           String         @db.Uuid
+  competenciaId    String?        @db.Uuid
+  tributo          Tributo
+  creditoPermitido Boolean
+  valorCredito     Decimal        @db.Decimal(18, 2)
+  regraId          String?        @db.Uuid
+  baseLegal        String
+  alertas          String[]       @default([])
+  status           StatusApuracao @default(SUGERIDO)
+  // proveniência: 'engine' = número calculado pelo motor determinístico.
+  // NUNCA persistir número fiscal vindo direto de um LLM.
+  proveniencia     String         @default("engine")
+  origemIA         Boolean        @default(false) // se uma sugestão de IA originou a análise
+  confianca        Decimal?       @db.Decimal(5, 4)
+  homologadoPor    String?        @db.Uuid
+  homologadoEm     DateTime?
+  criadoEm         DateTime       @default(now())
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documento   DocumentoFiscal @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  item        ItemDocumento   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  regra       RegraCredito?   @relation(fields: [regraId], references: [id])
+  competencia Competencia?    @relation(fields: [competenciaId], references: [id])
+
+  @@index([tenantId, documentoId])
+  @@index([tenantId, status])
+  @@map("apuracao_credito")
+}
+
+// ----------------------------------------------------------------------------
+// Trilha de auditoria append-only com encadeamento por hash (hash chain).
+// Cada evento referencia o hash do anterior do mesmo tenant: adulterar um
+// evento quebra a cadeia.
+// ----------------------------------------------------------------------------
+
+model AuditoriaEvento {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  sequencia   Int // sequência incremental por tenant
+  tipo        String // ex.: APURACAO_CALCULADA, APURACAO_HOMOLOGADA
+  entidade    String // ex.: ApuracaoCredito
+  entidadeId  String   @db.Uuid
+  dados       Json
+  usuarioId   String?  @db.Uuid
+  hashAnterior String?
+  hash        String
+  criadoEm    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sequencia])
+  @@index([tenantId, entidade, entidadeId])
+  @@map("auditoria_evento")
+}
+
+// ----------------------------------------------------------------------------
+// Competência (mês/ano) — base do fechamento de período (lock futuro).
+// ----------------------------------------------------------------------------
+
+model Competencia {
+  id        String            @id @default(uuid()) @db.Uuid
+  tenantId  String            @db.Uuid
+  empresaId String            @db.Uuid
+  ano       Int
+  mes       Int
+  status    StatusCompetencia @default(ABERTA)
+  fechadaEm DateTime?
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa   Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  apuracoes ApuracaoCredito[]
+
+  @@unique([tenantId, empresaId, ano, mes])
+  @@index([tenantId])
+  @@map("competencia")
+}
+
+// ----------------------------------------------------------------------------
+// Ingestão de SPED EFD-Contribuições + análise de LACUNA de crédito.
+// O arquivo SPED traz o crédito JÁ ESCRITURADO (declarado); o motor recalcula o
+// crédito devido item a item (C170) e a diferença é a lacuna (crédito não
+// aproveitado) ou o risco (crédito indevido).
+// ----------------------------------------------------------------------------
+
+model ImportacaoSped {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  empresaId String   @db.Uuid
+  tipo      String   @default("EFD_CONTRIBUICOES")
+  dtIni     DateTime
+  dtFin     DateTime
+  hashArquivo String // sha256 do conteúdo — evita reimportar o mesmo arquivo
+  totalDocumentos Int @default(0)
+  totalItens      Int @default(0)
+  // crédito declarado (M100/M500 VL_CRED) x recalculado pelo motor
+  creditoPisDeclarado    Decimal @db.Decimal(18, 2)
+  creditoCofinsDeclarado Decimal @db.Decimal(18, 2)
+  lacunaPisTotal         Decimal @db.Decimal(18, 2) @default(0)
+  lacunaCofinsTotal      Decimal @db.Decimal(18, 2) @default(0)
+  status    String   @default("PROCESSADO")
+  criadoEm  DateTime @default(now())
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  lacunas LacunaCredito[]
+
+  @@unique([tenantId, empresaId, hashArquivo])
+  @@index([tenantId, empresaId])
+  @@map("importacao_sped")
+}
+
+model LacunaCredito {
+  id           String  @id @default(uuid()) @db.Uuid
+  tenantId     String  @db.Uuid
+  importacaoId String  @db.Uuid
+  tributo      Tributo
+  // NAO_APROVEITADO | INCONSISTENCIA | INDEVIDO | REVISAO_PRESUMIDO | ENTRADA_NAO_ESCRITURADA
+  tipo             String
+  referencia       String // nº do doc/item ou chave de acesso
+  cst              String?
+  cfop             String?
+  creditoDeclarado Decimal @db.Decimal(18, 2)
+  creditoPotencial Decimal @db.Decimal(18, 2)
+  lacuna           Decimal @db.Decimal(18, 2) // potencial - declarado (negativo = indébito/risco)
+  baseLegal        String
+  observacao       String
+  criadoEm         DateTime @default(now())
+
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importacao ImportacaoSped @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, importacaoId])
+  @@index([tenantId, tipo])
+  @@map("lacuna_credito")
+}
+
+// ----------------------------------------------------------------------------
+// Custódia de certificado digital A1 (envelope encryption).
+// NENHUM material em claro é persistido: o PFX e a senha são cifrados com uma
+// DEK (AES-256-GCM); a DEK é embrulhada pela master key/KMS. O material só é
+// descriptografado em memória do worker no momento do uso (Distribuição DFe /
+// manifestação) e descartado em seguida.
+// ----------------------------------------------------------------------------
+
+model CertificadoDigital {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  empresaId  String   @db.Uuid
+  tipo       String   @default("A1")
+  cnpj       String
+  thumbprint String?
+  notBefore  DateTime?
+  notAfter   DateTime?
+  // envelope encryption (tudo base64; nada em claro)
+  encryptedPfx   String
+  pfxIv          String
+  pfxAuthTag     String
+  encryptedSenha String
+  senhaIv        String
+  senhaAuthTag   String
+  encryptedDek   String // DEK embrulhada pela master key
+  dekIv          String
+  dekAuthTag     String
+  kmsKeyId       String   @default("local-master")
+  status     String   @default("ATIVO")
+  criadoEm   DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, empresaId])
+  @@map("certificado_digital")
+}
+
+// Cursor da Distribuição DFe por empresa e modelo (NF-e e CT-e têm séries de
+// NSU independentes). Controla a varredura incremental e o cooldown/bloqueio.
+model DistribuicaoCursor {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @db.Uuid
+  empresaId        String    @db.Uuid
+  modelo           String // 'NFE' | 'CTE'
+  ultNsu           String    @default("000000000000000")
+  maxNsu           String    @default("000000000000000")
+  ultimoCStat      String?
+  cooldownAte      DateTime?
+  bloqueadoAte     DateTime?
+  ultimaConsultaEm DateTime?
+  totalDocumentos  Int       @default(0)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, empresaId, modelo])
+  @@index([tenantId, empresaId])
+  @@map("distribuicao_cursor")
+}
+
+// Apuração de imposto por competência (regime normal: débito − crédito → saldo).
+// Para Simples, a apuração é o DAS (calculado à parte, sem débito-crédito).
+model ApuracaoImposto {
+  id        String @id @default(uuid()) @db.Uuid
+  tenantId  String @db.Uuid
+  empresaId String @db.Uuid
+  imposto   String // 'ICMS' | 'IPI' | 'PIS' | 'COFINS' | 'ISS' | 'ICMS_ST' | ...
+  ano       Int
+  mes       Int
+  debito               Decimal @db.Decimal(18, 2) @default(0)
+  credito              Decimal @db.Decimal(18, 2) @default(0)
+  saldoCredorAnterior  Decimal @db.Decimal(18, 2) @default(0)
+  deducoes             Decimal @db.Decimal(18, 2) @default(0)
+  saldoApurado         Decimal @db.Decimal(18, 2) @default(0)
+  aRecolher            Decimal @db.Decimal(18, 2) @default(0)
+  saldoCredorTransportar Decimal @db.Decimal(18, 2) @default(0)
+  detalhe   Json?
+  criadoEm  DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, empresaId, imposto, ano, mes])
+  @@index([tenantId, empresaId])
+  @@map("apuracao_imposto")
+}
+
+// NFS-e (serviço, ISS). Documento MUNICIPAL/padrão nacional — distinto de
+// NF-e/NFC-e/CT-e. Chave de 50 dígitos. Base do débito de ISS do prestador.
+model NotaServico {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  empresaId String   @db.Uuid
+  chaveAcesso String // 50 dígitos (padrão nacional NFS-e)
+  numero    String?
+  dhEmi     DateTime
+  prestadorCnpj String
+  tomadorCnpj   String?
+  cTribNac  String?
+  municipioIncidencia String? // cLocIncid (autorizada) ou cLocPrestacao (DPS)
+  descServico String?
+  vServ     Decimal @db.Decimal(18, 2)
+  vBc       Decimal @db.Decimal(18, 2)
+  pAliq     Decimal @db.Decimal(7, 4)
+  vIss      Decimal @db.Decimal(18, 2)
+  tpRetISSQN String  @default("1") // 1=não retido (prestador recolhe); 2/3=retido
+  tribISSQN  String? // 1=tributável; 2/3/4=fora
+  xmlPath   String?
+  criadoEm  DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, chaveAcesso])
+  @@index([tenantId, empresaId, dhEmi])
+  @@map("nota_servico")
+}
+
+// Conexão OAuth2 com o Bling por empresa (uma conta por empresa). Os tokens
+// (access + refresh) ficam CIFRADOS (envelope AES-256-GCM, mesma custódia do A1);
+// nada em claro. FORA da RLS (como 'usuario'): o webhook público precisa varrer
+// as conexões p/ resolver o dono da NF — escopo de tenant forçado por código.
+model BlingConexao {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  empresaId String   @db.Uuid
+  // envelope encryption do JSON { access_token, refresh_token, scope } (base64)
+  tokenCiphertext String
+  tokenIv         String
+  tokenAuthTag    String
+  encryptedDek    String
+  dekIv           String
+  dekAuthTag      String
+  expiresAt DateTime // expiração do access_token
+  scope     String?
+  status    String   @default("ativo") // ativo | expirado | desconectado
+  ultimoSyncEm DateTime?
+  criadoEm  DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, empresaId])
+  @@map("bling_conexao")
+}
+
+// State temporário do fluxo OAuth (CSRF + amarra state→empresa). Lido pelo
+// callback PÚBLICO (sem JWT) → fica FORA da RLS (consulta pela chave única state).
+model BlingOAuthState {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  empresaId String   @db.Uuid
+  state     String   @unique
+  criadoEm  DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, empresaId])
+  @@map("bling_oauth_state")
+}

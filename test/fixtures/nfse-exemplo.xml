@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NFS-e (padrão nacional) de exemplo. Prestador = empresa Lucro Real do seed
+     (CNPJ 11111111000111). ISS 5% sobre R$ 1.000, não retido (tpRetISSQN=1). -->
+<NFSe versao="1.00" xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <infNFSe Id="NFSe35260211111111000111000000000000000000000000000001">
+    <nNFSe>1</nNFSe>
+    <dhProc>2026-02-15T10:00:00-03:00</dhProc>
+    <cLocIncid>3550308</cLocIncid>
+    <valores>
+      <vBC>1000.00</vBC>
+      <pAliqAplic>5.0000</pAliqAplic>
+      <vISSQN>50.00</vISSQN>
+    </valores>
+    <DPS>
+      <infDPS>
+        <dhEmi>2026-02-15T09:00:00-03:00</dhEmi>
+        <nDPS>1</nDPS>
+        <prest>
+          <CNPJ>11111111000111</CNPJ>
+        </prest>
+        <toma>
+          <CNPJ>22222222000122</CNPJ>
+        </toma>
+        <serv>
+          <cServ>
+            <cTribNac>010101</cTribNac>
+            <cLocPrestacao>3550308</cLocPrestacao>
+            <xDescServ>Servico de consultoria</xDescServ>
+          </cServ>
+          <valores>
+            <vServPrest><vServ>1000.00</vServ></vServPrest>
+            <trib>
+              <tribMun>
+                <tribISSQN>1</tribISSQN>
+                <tpRetISSQN>1</tpRetISSQN>
+              </tribMun>
+            </trib>
+          </valores>
+        </serv>
+      </infDPS>
+    </DPS>
+  </infNFSe>
+</NFSe>

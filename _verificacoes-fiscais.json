@@ -1,0 +1,280 @@
+[
+  {
+    "tema": "icms",
+    "itens": [
+      {
+        "afirmacao": "Alíquota-teste 2026: 0,9% CBS + 0,1% IBS, compensável com PIS/COFINS do mesmo período.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. Em 2026 a alíquota-teste é 0,1% IBS + 0,9% CBS; o valor recolhido é compensado com PIS/COFINS do mesmo período de apuração e, se houver débito insuficiente, com outros tributos federais ou ressarcido em espécie. Acrescentei essa nuance (compensação com outros federais/ressarcimento) que o rascunho omitia.",
+        "fonte": "Receita Federal (gov.br/receitafederal) e Tax Group, jun/2026; LC 214/2025"
+      },
+      {
+        "afirmacao": "Crédito de ICMS de uso/consumo (e energia/comunicação não-industriais) postergado para 01/01/2033 pela LC 171/2019, alterando o art. 33 da LC 87/96.",
+        "status": "confirmado",
+        "detalhe": "Confirmado integralmente. LC 171/2019 prorrogou para 01/01/2033 o aproveitamento de crédito de uso/consumo (art. 33, I) e de energia/comunicação não vinculadas a industrialização/exportação.",
+        "fonte": "LC 171/2019; LC 87/96 art. 33 (Planalto); Systax; Trajano Neto & Paciornik"
+      },
+      {
+        "afirmacao": "Redução do ICMS começa em 2029 (não em 2026); ICMS permanece 100% vigente em 2026.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. ICMS e ISS reduzem 10% ao ano de 2029 a 2032, com extinção plena em 2033. Em 2026 a fase é apenas de teste informativo, sem redução do ICMS.",
+        "fonte": "LC 214/2025; CRCSP; Tax Group; Câmara dos Deputados"
+      },
+      {
+        "afirmacao": "STF RE 593.849 / Tema 201 garante restituição da diferença do ICMS-ST quando a base presumida supera a real.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. Tema 201 = RE 593.849/MG, tese exata: restituição da diferença do ICMS pago a mais na ST para frente se a base efetiva for inferior à presumida (fundamento art. 150, §7º, CF). Adicionei nota distinguindo o Tema 201 (diferença base presumida×real) das demais hipóteses clássicas de ressarcimento (saída interestadual, isenção posterior, perda), que se fundam diretamente no art. 10 da LC 87/96.",
+        "fonte": "STF, portal de repercussão geral (Tema 201)"
+      },
+      {
+        "afirmacao": "CST 30 = 'Isenta/não trib. com ST'; CST 60 = 'ICMS cobrado anteriormente por ST'; CST 70 = 'Redução de base + ST'; CST 51 = 'Diferimento'.",
+        "status": "confirmado",
+        "detalhe": "Todas as descrições de CST do rascunho conferem com a Tabela B do CST-ICMS. CST 30 = isenta/não tributada e com cobrança do ICMS por ST; CST 60 = ICMS cobrado anteriormente por ST (substituído); CST 70 = redução de base + ST; CST 51 = diferimento. Apenas detalhei a redação completa de CST 30 e 70 na tabela.",
+        "fonte": "Tabela CST ICMS (Webmania; SEFAZ/PB Anexo 14)"
+      },
+      {
+        "afirmacao": "CFOP de ST: rascunho listava 'x403/x401' genericamente como 'mercadoria sujeita a ST'.",
+        "status": "corrigido",
+        "detalhe": "Corrigido para precisão: CFOP x401 = compra para INDUSTRIALIZAÇÃO em operação com mercadoria sujeita a ST; CFOP x403 = compra para COMERCIALIZAÇÃO em operação com mercadoria sujeita a ST. A conclusão (sem crédito ordinário do ICMS-ST) permanece correta; ajustei apenas a descrição de cada código.",
+        "fonte": "Tabela CFOP (Convênio SINIEF s/nº 1970; Ajuste SINIEF)"
+      },
+      {
+        "afirmacao": "Layout da NF-e referenciado como 'NT 2013/2024, leiaute 4.00'.",
+        "status": "corrigido",
+        "detalhe": "Imprecisão de referência. O leiaute 4.00 da NF-e foi introduzido pela NT 2016.002 (e atualizações posteriores), não por uma 'NT 2013'. Substituí por 'leiaute 4.00, regido pela NT 2016.002 e atualizações'. Não afeta nenhuma conclusão fiscal — é só citação técnica do documento da NT.",
+        "fonte": "Portal NF-e / Notas Técnicas (NT 2016.002)"
+      },
+      {
+        "afirmacao": "Crédito do Simples limitado a vCredICMSSN (CSOSN 101/201), base LC 123/2006 art. 23 e Res. CGSN 140/2018.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. O adquirente credita exclusivamente o vCredICMSSN destacado no grupo ICMSSN101 (calculado por pCredSN), nunca alíquota cheia sobre vBC; fundamento LC 123/2006 art. 23, §§1º a 6º, e Resolução CGSN 140/2018.",
+        "fonte": "LC 123/2006 art. 23; Resolução CGSN 140/2018"
+      },
+      {
+        "afirmacao": "CIAP: crédito do ativo em 1/48 ao mês, proporcional às saídas tributadas, art. 20 §5º LC 87/96; perda das parcelas vincendas na alienação antes de 48 meses.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. Art. 20, §5º da LC 87/96 estabelece a apropriação em até 48 parcelas mensais, fator de proporcionalidade saídas tributadas+exportação / saídas totais, e cessação das parcelas remanescentes na alienação antes do término. Não alterado.",
+        "fonte": "LC 87/96 art. 20, §5º (Planalto)"
+      },
+      {
+        "afirmacao": "Energia elétrica é documentada em modelo 6/66 (NF de energia), não modelo 55.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. NF de energia elétrica usa modelo 6 (NF Conta de Energia) e a versão eletrônica NF3e (modelo 66); a regra de crédito do art. 33, II permanece a mesma. Observação do rascunho está correta.",
+        "fonte": "Ajuste SINIEF / modelos de documentos fiscais"
+      }
+    ]
+  },
+  {
+    "tema": "pis-cofins",
+    "itens": [
+      {
+        "afirmacao": "A extinção de PIS/COFINS é progressiva até 2033, com a CBS substituindo PIS/COFINS; manter o módulo plenamente ativo em 2026-2027.",
+        "status": "corrigido",
+        "detalhe": "ERRO DE CRONOGRAMA (o mais grave do rascunho). PIS e COFINS são EXTINTOS em 31/12/2026; a CBS entra em cobrança efetiva (alíquota cheia) em 01/01/2027 — não em 2033. O cronograma até 2033 refere-se à extinção de ICMS/ISS pelo IBS (transição 2029-2032, extinção 2033). Corrigi o texto: módulo PIS/COFINS plenamente ativo em 2026; em 2027 relevante apenas para períodos anteriores, retificações, PER/DCOMP e migração de saldo credor para a CBS. Acrescentei base legal (LC 214/2025, arts. 378-383) e a regra de aproveitamento dos saldos credores remanescentes na virada para a CBS.",
+        "fonte": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm ; https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/acoes-e-programas/programas-e-atividades/reforma-consumo/entenda"
+      },
+      {
+        "afirmacao": "Não gera crédito, em regra, a aquisição de optante do Simples Nacional (citando Lei 10.833, art. 3º, §2º).",
+        "status": "corrigido",
+        "detalhe": "ERRO FISCAL relevante. A aquisição de bens para revenda/insumos DE fornecedor optante do Simples Nacional GERA crédito básico de PIS/COFINS (1,65% e 7,6%) para o adquirente não-cumulativo, por força da ADI RFB nº 15/2007 (interpretando o art. 3º, II das Leis 10.637/02 e 10.833/03). A vedação do art. 3º, §2º alcança a aquisição de pessoa física (inc. I) e de bens/serviços não sujeitos ao pagamento da contribuição (inc. II) — não o Simples. Removi 'Simples Nacional' da lista de não-creditáveis e inseri bloco de correção explícito; ajustei o pseudocódigo do motor (fornecedorElegivel: Simples É elegível).",
+        "fonte": "http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=5661 ; http://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm"
+      },
+      {
+        "afirmacao": "Tabela 1: Simples Nacional recolhe PIS/COFINS no DAS e NÃO apura crédito (LC 123/2006, art. 23).",
+        "status": "confirmado",
+        "detalhe": "Correto quanto ao PRÓPRIO optante (não apura crédito sobre suas entradas). Adicionei a ressalva 'para o próprio optante' para não colidir com a correção do §4 — o optante não credita, mas quem compra DELE (sendo não-cumulativo) pode creditar.",
+        "fonte": "LC 123/2006, art. 23"
+      },
+      {
+        "afirmacao": "Conceito de insumo = essencialidade/relevância, fixado pelo STJ no REsp 1.221.170/PR (Tema 779) e incorporado pelo art. 176 da IN RFB 2.121/2022.",
+        "status": "confirmado",
+        "detalhe": "Verificado. REsp 1.221.170/PR julgado em 2018; tese de essencialidade OU relevância; art. 176 da IN RFB 2.121/2022 incorpora o entendimento, com lista exemplificativa (não exaustiva) no §1º. Adicionei nota '(verificado)'.",
+        "fonte": "https://www.gov.br/pgfn/pt-br/cidadania-tributaria/por-assunto/pis-cofins-2/copy_of_nao-cumulatividade/conceito-de-insumos-e-ajustes-no-creditamento"
+      },
+      {
+        "afirmacao": "STF (2025) validou que o legislador ordinário pode restringir o crédito, preservando o conceito de insumo do STJ.",
+        "status": "confirmado",
+        "detalhe": "Verificado na notícia do STF: validadas as leis 10.637/02 e 10.833/03 quanto à autonomia do legislador ordinário para conceder/negar créditos, mantido o critério de essencialidade/relevância do STJ. Adicionei nota '(verificado)'.",
+        "fonte": "https://portal.stf.jus.br/noticias/verNoticiaDetalhe.asp?idConteudo=498242&ori=1"
+      },
+      {
+        "afirmacao": "Em 2026 vigoram CBS 0,9% e IBS 0,1%, compensáveis com PIS/COFINS no mesmo período; contribuinte ainda apura PIS/COFINS normalmente.",
+        "status": "confirmado",
+        "detalhe": "Verificado. Alíquotas-teste de 0,9% (CBS) e 0,1% (IBS) em 2026, compensáveis com o devido de PIS/COFINS no mesmo período de apuração; dispensado o recolhimento para quem cumpre as obrigações acessórias. Adicionei nota '(verificado)'. A correção recai apenas sobre a data de extinção (ver item 1).",
+        "fonte": "https://online.crcsp.org.br/portal/noticias/noticia.asp?c=9044 ; https://www.reformatributaria.com/opiniao/ibs-e-cbs-em-2026-como-funciona-a-convivencia-com-os-tributos-atuais-segundo-a-lc-no-214-2025/"
+      },
+      {
+        "afirmacao": "Energia elétrica gera crédito (inciso III) — normalmente NF-e modelo 66 / conta de energia.",
+        "status": "corrigido",
+        "detalhe": "Ajuste de nomenclatura: o documento da energia elétrica é a NF3e (Nota Fiscal de Energia Elétrica Eletrônica), modelo 66, instituída pelo Ajuste SINIEF 01/19 em substituição ao modelo 6 — não 'NF-e modelo 66'. Troquei 'NF-e modelo 66' por 'NF3e modelo 66' e adicionei nota '(verificado)'. A hipótese de crédito (inciso III) está correta.",
+        "fonte": "https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc_nf3e_visaogeral_v1-00a-1.pdf"
+      },
+      {
+        "afirmacao": "Fretes na operação de venda quando o ônus é do vendedor — inciso IX da Lei 10.833.",
+        "status": "confirmado",
+        "detalhe": "Verificado. Inciso IX abrange 'armazenagem de mercadoria e frete na operação de venda, nos casos dos incisos I e II, quando o ônus for suportado pelo vendedor'. Acrescentei 'armazenagem de mercadoria e' (que também consta do inciso) e nota '(verificado)'.",
+        "fonte": "http://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm"
+      },
+      {
+        "afirmacao": "A decisão de crédito deve cruzar NCM + Tabelas 4.3.10 e 4.3.13 do SPED; a 4.3.10 foi atualizada em 30.03.2026.",
+        "status": "confirmado",
+        "detalhe": "Verificado: Tabela 4.3.10 (produtos monofásicos/bebidas frias, CST de saída 02 e 04) versão 1.25, atualizada em 30.03.2026. Acrescentei que a 4.3.10 trata dos CST de SAÍDA 02/04 (reforça o ponto de que não se deve confiar no CST do XML) e citei o repetitivo do STJ de 2022 que veda crédito em aquisição de monofásico (Tema 1.093 e correlatos).",
+        "fonte": "http://sped.rfb.gov.br/arquivo/show/1638 ; https://www.stj.jus.br/sites/portalp/Paginas/Comunicacao/Noticias/04052022-Repetitivo-veda-creditos-de-PISPasep-e-Cofins-sobre-aquisicao-no-regime-monofasico-e-fixa-outras-teses.aspx"
+      },
+      {
+        "afirmacao": "Faixa de CST: crédito 50-56, sem direito 60-67.",
+        "status": "corrigido",
+        "detalhe": "Imprecisão na descrição introdutória do §4: a faixa 60-67 NÃO é 'sem direito' — é crédito PRESUMIDO (gera crédito, com regra própria). A faixa SEM direito a crédito é 70-75. O corpo da tabela já estava correto (60-67 = presumido; 70-75 = sem crédito); corrigi apenas a frase de abertura para refletir isso. Tabela oficial é a 4.3.4 do SPED (CST-PIS/CST-COFINS) — confirmado.",
+        "fonte": "http://sped.rfb.gov.br/pasta/show/1616"
+      },
+      {
+        "afirmacao": "CST 73 (alíquota zero) não gera crédito — base 'art. 195 e segs. IN 2.121/2022'.",
+        "status": "corrigido",
+        "detalhe": "A vedação tem base legal direta no art. 3º, §2º, II das Leis 10.637/02 e 10.833/03 (consolidada na IN RFB 2.121/2022), não primariamente no 'art. 195' da IN. Substituí a citação por 'art. 3º, §2º, II das Leis 10.637/02 e 10.833/03; consolidado na IN RFB 2.121/2022'. Também complementei o CST 71 (isenção) com a ressalva de que insumo isento usado em produto tributado pode creditar (exceção do próprio §2º, II).",
+        "fonte": "http://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm"
+      },
+      {
+        "afirmacao": "Alíquotas: não-cumulativo PIS 1,65% + COFINS 7,6%; cumulativo PIS 0,65% + COFINS 3,0%.",
+        "status": "confirmado",
+        "detalhe": "Alíquotas corretas e estáveis. Bases legais (Lei 10.637/02 art. 8º e Lei 10.833/03 art. 10 para o cumulativo; Lei 9.718/98) corretas. Sem alteração.",
+        "fonte": "Lei 10.637/2002; Lei 10.833/2003; Lei 9.718/1998"
+      }
+    ]
+  },
+  {
+    "tema": "reforma",
+    "itens": [
+      {
+        "afirmacao": "Alíquotas-teste vigentes desde 01/01/2026: CBS 0,9% e IBS 0,1% (total 1%), art. 348 da LC 214/2025, informativas/calibradoras.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. Acrescentei nota verificada de que o IBS de 0,1% se reparte em 0,05% estadual + 0,05% municipal.",
+        "fonte": "https://sindifisco.org.br/noticias/ibs-e-cbs-em-2026-como-funciona-a-convivencia-com-os-tributos-atuais-segundo-a-lc-no-214-2025"
+      },
+      {
+        "afirmacao": "Dispensa de recolhimento em 2026 condicionada às obrigações acessórias, com compensação integral com PIS/COFINS ou outros tributos federais, ou ressarcimento.",
+        "status": "corrigido",
+        "detalhe": "A dispensa decorre dos §§1º e 2º do art. 348 (o rascunho citava apenas o §1º). Acrescentei o prazo legal de 60 dias para ressarcimento e ajustei 'compensável integralmente' para 'compensável com PIS/COFINS do mesmo período; na falta de débitos, com outros tributos federais ou ressarcível em 60 dias', que é a redação exata.",
+        "fonte": "https://sindifisco.org.br/noticias/ibs-e-cbs-em-2026-como-funciona-a-convivencia-com-os-tributos-atuais-segundo-a-lc-no-214-2025"
+      },
+      {
+        "afirmacao": "Cronograma: 2026 teste; 2027 CBS em alíquota de referência e extinção de PIS/COFINS; IPI reduzido a zero (salvo ZFM) com IS; 2029-2032 transição ICMS/ISS->IBS; 2033 regime pleno.",
+        "status": "confirmado",
+        "detalhe": "Cronograma confirmado. Acrescentei a referência (não-vinculante) de ~8,8% para a CBS em 2027 como estimativa divulgada, e detalhei que IPI vai a alíquota zero e o IS começa a partir de 2027.",
+        "fonte": "https://www.jettax.com.br/blog/cronograma-e-fases-da-reforma-tributaria-de-2026-a-2033/"
+      },
+      {
+        "afirmacao": "Em 2027 o motor para de aplicar PIS/COFINS e passa a aplicar CBS em alíquota de referência (implícito: ambos os tributos novos avançam).",
+        "status": "corrigido",
+        "detalhe": "Omissão relevante: o IBS NÃO acompanha a CBS em 2027 — permanece em alíquota simbólica de 0,1% em 2027 e 2028, só escalando a partir de 2029. Adicionei essa ressalva na seção 1 e na seção 2 (é exatamente o caso que valida o versionamento por vigência+tributo em vez de um engine binário).",
+        "fonte": "https://simtax.com.br/ibs-2027-2028-cobranca-transicao/"
+      },
+      {
+        "afirmacao": "Não-cumulatividade plena com crédito financeiro amplo: praticamente toda aquisição vinculada à atividade gera crédito.",
+        "status": "corrigido",
+        "detalhe": "Direcionalmente correto, mas o rascunho omitia a condição inafastável do art. 47 c/c art. 27: o crédito do adquirente é condicionado à EXTINÇÃO DO DÉBITO da operação anterior (pagamento, compensação, split payment ou recolhimento pelo adquirente) — é crédito 'financeiro existente', dependente do recolhimento a montante. Incorporei essa condição nas seções 1 e 3 e separei 'elegibilidade' de 'existência financeira' do crédito.",
+        "fonte": "https://www.conjur.com.br/2026-mai-18/direito-ao-credito-de-ibs-e-cbs-no-contexto-da-reforma-tributaria/"
+      },
+      {
+        "afirmacao": "Vedações de crédito: uso/consumo pessoal (arts. 57 e ss.) e tratamento específico de bens de capital nos arts. 108-109.",
+        "status": "corrigido",
+        "detalhe": "Art. 57 confirma a vedação ao crédito de bens/serviços de uso ou consumo pessoal do contribuinte/sócios/administradores. Porém os arts. 108-109 NÃO são vedação: o art. 108 GARANTE crédito integral e imediato na aquisição de bens de capital. Reclassifiquei como garantia, não como restrição.",
+        "fonte": "https://reformatributaria.sefin.ro.gov.br/2025/10/24/bens-de-capital-cbs-ibs-uma-reflexao-acerca-dos-arts-108-e-109-da-lc-no-214-2025/"
+      },
+      {
+        "afirmacao": "O layout da NF-e foi estendido por Nota Técnica para incluir grupos de IBS/CBS/IS a partir de jan/2026; parser precisa tolerar schema com e sem os novos grupos.",
+        "status": "confirmado",
+        "detalhe": "Confirmado: NT 2025.002-RTC introduz o grupo UB (IBS/CBS/IS) na NF-e mod. 55 e NFC-e mod. 65, com valor jurídico a partir de jan/2026. Acrescentei o número da NT e a informação verificada de que a regra de rejeição por ausência de IBS/CBS (UB12-10) teve a validação técnica adiada — não há rejeição automática em janeiro/2026.",
+        "fonte": "https://blog.tecnospeed.com.br/nota-tecnica-reforma-tributaria-nfe-nfce/"
+      },
+      {
+        "afirmacao": "NFeDistribuicaoDFe (Ambiente Nacional, NSU por CNPJ) continua sendo canal primário; manifestação do destinatário rege a disponibilização do XML completo.",
+        "status": "confirmado",
+        "detalhe": "Confirmado. Tornei explícito o detalhe verificado: antes da manifestação só ficam disponíveis o resumo (resNFe) e eventos de cancelamento; o XML completo só é gerado com novo NSU APÓS a manifestação (Ciência/Confirmação/Operação não Realizada). NSU é por CNPJ ou CPF.",
+        "fonte": "http://moc.sped.fazenda.pr.gov.br/NFeDistribuicaoDFe.html"
+      },
+      {
+        "afirmacao": "CST/CSOSN/CFOP e campos do XML (ICMS00, ICMSSN101, pCredSN, CST PIS/COFINS 01-99, 50-56) e regra de que CFOP 1.556/2.556 uso e consumo não credita em ICMS mas credita em IBS.",
+        "status": "confirmado",
+        "detalhe": "Nomenclatura de campos do XML e a lógica de elegibilidade por CFOP/CST estão corretas e coerentes com o leiaute NF-e e com a virada de crédito físico->financeiro. A única ressalva é a condição do art. 47 (extinção do débito a montante), já incorporada.",
+        "fonte": "https://www.conjur.com.br/2026-mai-18/direito-ao-credito-de-ibs-e-cbs-no-contexto-da-reforma-tributaria/"
+      }
+    ]
+  },
+  {
+    "tema": "dados",
+    "itens": [
+      {
+        "afirmacao": "CST PIS/COFINS '06/07/08/09 monofásico/alíquota zero/isenta/suspensão'",
+        "status": "corrigido",
+        "detalhe": "Erro factual. Pela Tabela CST-PIS/COFINS oficial, na faixa de SAÍDA: 06=Operação Tributável a Alíquota Zero; 07=Isenta; 08=Sem Incidência; 09=Suspensão. O monofásico é o CST 04 (revenda a alíquota zero), além de 02/03 (alíquota diferenciada / por unidade) para o fabricante/importador. Logo '06=monofásico' e '08=isenta' estavam errados. Corrigido o mapa completo.",
+        "fonte": "https://www.boletimcontabil.com.br/bolet2/cstpis.html"
+      },
+      {
+        "afirmacao": "CST PIS/COFINS '01 a 99 — 01/02 tributados, 50-56 com crédito, 70-75 sem crédito'",
+        "status": "corrigido",
+        "detalhe": "Mistura faixas de saída e entrada sem separá-las, induzindo erro. CSTs 01-09 são de SAÍDA/receita (não de entrada); os de ENTRADA/aquisição são 50-56 (com crédito vinculado à receita), 60-66 (crédito presumido), 70 (sem crédito), 71-75 (isenção/suspensão/alíq. zero/sem incidência/ST), 98/99. Além disso '70-75 sem crédito' é impreciso: só 70 é 'sem direito a crédito'; 71-75 têm naturezas específicas. Reorganizado e separado saída x entrada.",
+        "fonte": "https://www.boletimcontabil.com.br/bolet2/cstpis.html"
+      },
+      {
+        "afirmacao": "ICMS10/ICMS70 ambos como 'ST'; ICMS70 listado junto de ICMS10",
+        "status": "corrigido",
+        "detalhe": "Impreciso. ICMS10 = tributada integral + ST. ICMS70 = redução de base + ST (CST 70), portanto combina pRedBC com os campos de ST. O agrupamento foi reescrito para distinguir ICMS10 (ST sem redução), ICMS70 (redução + ST) e ICMS20 (redução sem ST).",
+        "fonte": "https://cosmos.bluesoft.com.br/tabelas/cst/icms/70-com-reducao-de-base-de-calculo-e-cobranca-do-icms-por-substituicao-tributaria"
+      },
+      {
+        "afirmacao": "ICMS60/ICMSSN agrupados; CSOSN 101 com vCredICMSSN/pCredSN apenas no ICMSSN101",
+        "status": "corrigido",
+        "detalhe": "ICMS60 (regime normal, ICMS-ST cobrado anteriormente) é grupo distinto dos grupos do Simples (ICMSSN). O destaque de crédito via pCredSN/vCredICMSSN ocorre no ICMSSN101 e TAMBÉM no ICMSSN201 e ICMSSN900 — não só no 101. O crédito é o do art. 23 da LC 123/2006. Ajustado e base legal explicitada.",
+        "fonte": "https://atendimento.tecnospeed.com.br/hc/pt-br/articles/360019622434-Regra-Tributaria-vCredICMSSN"
+      },
+      {
+        "afirmacao": "Documentos da Distribuição DFe disponíveis por até 90 dias; controle por NSU",
+        "status": "confirmado",
+        "detalhe": "Confirmado pela NT 2014.002: distNSU, consNSU e consChNFe operam sobre a janela dos últimos 90 dias após recepção no Ambiente Nacional; após isso a NF-e não é recuperável por esses serviços. Acrescentei a consulta consNSU que faltava ser citada.",
+        "fonte": "https://atendimento.tecnospeed.com.br/hc/pt-br/articles/10794811536791"
+      },
+      {
+        "afirmacao": "Parar ao receber cStat 137/138; throttling/uso indevido",
+        "status": "corrigido",
+        "detalhe": "A descrição estava genérica e parcialmente invertida. Correto: cStat 137 = 'Nenhum documento localizado' (deve aguardar 1 hora antes de nova consulta); reconsultar antes disso gera uso indevido, rejeição 656 ('Consumo Indevido') e bloqueio do CNPJ por 1 hora. cStat 138 = 'Documento(s) localizado(s)' = resposta normal, pode seguir avançando NSU. O draft tratava 137/138 como 'parada', o que está errado para o 138.",
+        "fonte": "https://atendimento.tecnospeed.com.br/hc/pt-br/articles/10794811536791"
+      },
+      {
+        "afirmacao": "EFD-Contribuições deixa de apurar PIS/COFINS a partir de jan/2027 (NT 011/2026); fica ~5 anos para consulta/retificação",
+        "status": "confirmado",
+        "detalhe": "Confirmado pela NT 011/2026 da RFB (publicada em sped.rfb.gov.br). Sem alteração de layout em 2026 para CBS/IBS/IS. A janela decadencial de 5 anos para recuperar crédito de PIS/COFINS está correta.",
+        "fonte": "http://sped.rfb.gov.br/pagina/show/8017"
+      },
+      {
+        "afirmacao": "EFD-ICMS/IPI Guia Prático versão 3.2.0 vigente em 2026; CBS/IBS não entram em EFD-ICMS/IPI, EFD-Contribuições, ECD ou ECF",
+        "status": "corrigido",
+        "detalhe": "Em essência correto: Guia Prático 3.2.0 + PVA 6.0.0 vigentes a partir de 01/01/2026 (publicados em 30/09/2025). Pequena desatualização: já há versão 3.2.2 posterior do Guia Prático, então o mais seguro é referir 'família 3.2.x'. Confirmado que CBS/IBS/IS não entram nos SPEDs tradicionais — terão obrigação acessória própria.",
+        "fonte": "https://fenacon.org.br/noticias/nova-versao-do-guia-pratico-e-do-programa-da-efd-icms-ipi-entram-em-vigor-em-janeiro-de-2026/"
+      },
+      {
+        "afirmacao": "2026 como 'período de teste' com CBS 0,9%/IBS 0,1% 'integralmente compensados, sem desembolso adicional'",
+        "status": "corrigido",
+        "detalhe": "Alíquotas confirmadas (CBS 0,9%, IBS 0,1%). A frase 'integralmente compensados, sem desembolso adicional' simplifica demais: os valores são compensáveis com PIS/COFINS e há DISPENSA de recolhimento para quem cumprir integralmente as obrigações acessórias (art. 348 da LC 214/2025); multas efetivas só a partir de 2027. Também corrigido o erro de digitação '2026-2026' (era para ser '2026'). Texto ajustado com a base legal.",
+        "fonte": "https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/acoes-e-programas/programas-e-atividades/reforma-consumo/orientacoes-2026"
+      },
+      {
+        "afirmacao": "Crédito financeiro amplo do novo modelo: LC 214/2025, arts. 47 e seguintes; exceções no art. 57",
+        "status": "confirmado",
+        "detalhe": "Confirmado: art. 47 da LC 214/2025 estabelece a apropriação ampla de créditos de IBS/CBS condicionada à extinção do débito na etapa anterior; art. 57 traz as exceções (uso/consumo pessoal etc.). Citação de base legal correta.",
+        "fonte": "https://www.conjur.com.br/2026-mai-18/direito-ao-credito-de-ibs-e-cbs-no-contexto-da-reforma-tributaria/"
+      },
+      {
+        "afirmacao": "Não há API REST pública para baixar notas; tudo passa por SOAP + certificado + NSU (NFeDistribuicaoDFe)",
+        "status": "confirmado",
+        "detalhe": "Correto. A Distribuição DFe é via webservice SOAP NFeDistribuicaoDFe no Ambiente Nacional, exige certificado digital e controle incremental por NSU. Não existe endpoint REST público da RFB/SEFAZ para 'baixar notas de entrada' com token.",
+        "fonte": "https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=wLVBlKchUb4%3D"
+      },
+      {
+        "afirmacao": "Manifestação do destinatário libera a NF-e completa (eventos Ciência/Confirmação/Desconhecimento/Operação não Realizada); sem ela só vem resumo (resNFe)",
+        "status": "confirmado",
+        "detalhe": "Correto conforme NT 2014.002. Sem manifestação a Distribuição DFe entrega apenas o resumo (resNFe); a NF-e completa (procNFe) é liberada após o evento de manifestação do destinatário.",
+        "fonte": "https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=wLVBlKchUb4%3D"
+      }
+    ]
+  }
+]

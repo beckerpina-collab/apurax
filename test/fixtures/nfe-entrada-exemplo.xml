@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NF-e de entrada de exemplo (modelo 55). Destinatário = empresa Lucro Real do seed
+     (CNPJ 11111111000111). Três itens cobrindo casos distintos de crédito:
+       item 1: ICMS CST 00 + PIS/COFINS CST 01  -> credita tudo
+       item 2: ICMS CST 60 (ST) + PIS/COFINS CST 04 (monofásico) -> não credita
+       item 3: ICMS CSOSN 101 (Simples) + PIS/COFINS CST 01 -> credita via vCredICMSSN -->
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe35260211111111000111550010000000011000000017" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <natOp>COMPRA PARA INDUSTRIALIZACAO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>1</nNF>
+        <dhEmi>2026-02-10T09:00:00-03:00</dhEmi>
+        <tpNF>1</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>99999999000199</CNPJ>
+        <xNome>Fornecedor Industria Ltda</xNome>
+      </emit>
+      <dest>
+        <CNPJ>11111111000111</CNPJ>
+        <xNome>Comercio Lucro Real Ltda</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>A1</cProd>
+          <xProd>MATERIA PRIMA ACO</xProd>
+          <NCM>72106900</NCM>
+          <CFOP>1101</CFOP>
+          <qCom>10.0000</qCom>
+          <vUnCom>100.00</vUnCom>
+          <vProd>1000.00</vProd>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMS00>
+              <orig>0</orig>
+              <CST>00</CST>
+              <vBC>1000.00</vBC>
+              <pICMS>18.00</pICMS>
+              <vICMS>180.00</vICMS>
+            </ICMS00>
+          </ICMS>
+          <PIS>
+            <PISAliq>
+              <CST>01</CST>
+              <vBC>1000.00</vBC>
+              <pPIS>1.65</pPIS>
+              <vPIS>16.50</vPIS>
+            </PISAliq>
+          </PIS>
+          <COFINS>
+            <COFINSAliq>
+              <CST>01</CST>
+              <vBC>1000.00</vBC>
+              <pCOFINS>7.60</pCOFINS>
+              <vCOFINS>76.00</vCOFINS>
+            </COFINSAliq>
+          </COFINS>
+        </imposto>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>B2</cProd>
+          <xProd>PRODUTO MONOFASICO COMBUSTIVEL</xProd>
+          <NCM>27101259</NCM>
+          <CFOP>1403</CFOP>
+          <qCom>5.0000</qCom>
+          <vUnCom>50.00</vUnCom>
+          <vProd>250.00</vProd>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMS60>
+              <orig>0</orig>
+              <CST>60</CST>
+              <vBCSTRet>250.00</vBCSTRet>
+              <vICMSSTRet>45.00</vICMSSTRet>
+            </ICMS60>
+          </ICMS>
+          <PIS>
+            <PISNT>
+              <CST>04</CST>
+            </PISNT>
+          </PIS>
+          <COFINS>
+            <COFINSNT>
+              <CST>04</CST>
+            </COFINSNT>
+          </COFINS>
+        </imposto>
+      </det>
+      <det nItem="3">
+        <prod>
+          <cProd>C3</cProd>
+          <xProd>INSUMO DE FORNECEDOR SIMPLES</xProd>
+          <NCM>39269090</NCM>
+          <CFOP>1102</CFOP>
+          <qCom>2.0000</qCom>
+          <vUnCom>100.00</vUnCom>
+          <vProd>200.00</vProd>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMSSN101>
+              <orig>0</orig>
+              <CSOSN>101</CSOSN>
+              <pCredSN>2.8255</pCredSN>
+              <vCredICMSSN>5.65</vCredICMSSN>
+            </ICMSSN101>
+          </ICMS>
+          <PIS>
+            <PISAliq>
+              <CST>01</CST>
+              <vBC>200.00</vBC>
+              <pPIS>1.65</pPIS>
+              <vPIS>3.30</vPIS>
+            </PISAliq>
+          </PIS>
+          <COFINS>
+            <COFINSAliq>
+              <CST>01</CST>
+              <vBC>200.00</vBC>
+              <pCOFINS>7.60</pCOFINS>
+              <vCOFINS>15.20</vCOFINS>
+            </COFINSAliq>
+          </COFINS>
+        </imposto>
+      </det>
+      <total>
+        <ICMSTot>
+          <vProd>1450.00</vProd>
+          <vICMS>180.00</vICMS>
+          <vNF>1450.00</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>
