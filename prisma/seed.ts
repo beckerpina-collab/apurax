@@ -126,27 +126,33 @@ async function main() {
     },
   });
 
-  await prisma.empresa.upsert({
-    where: { tenantId_cnpj: { tenantId: tenant.id, cnpj: '11111111000111' } },
-    update: {},
-    create: {
-      tenantId: tenant.id,
-      cnpj: '11111111000111',
-      razaoSocial: 'Comércio Lucro Real Ltda',
-      regimeTributario: 'LUCRO_REAL',
-      uf: 'SP',
-    },
-  });
-  await prisma.empresa.upsert({
-    where: { tenantId_cnpj: { tenantId: tenant.id, cnpj: '22222222000122' } },
-    update: {},
-    create: {
-      tenantId: tenant.id,
-      cnpj: '22222222000122',
-      razaoSocial: 'Serviços Presumido Ltda',
-      regimeTributario: 'LUCRO_PRESUMIDO',
-      uf: 'SP',
-    },
+  // 'empresa' está sob RLS. O seed roda sem contexto de tenant, então setamos
+  // app.current_tenant DENTRO da transação (mesmo mecanismo do PrismaService.scoped)
+  // para passar pela política WITH CHECK. Funciona mesmo com a RLS já forçada.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.current_tenant', ${tenant.id}, true)`;
+    await tx.empresa.upsert({
+      where: { tenantId_cnpj: { tenantId: tenant.id, cnpj: '11111111000111' } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        cnpj: '11111111000111',
+        razaoSocial: 'Comércio Lucro Real Ltda',
+        regimeTributario: 'LUCRO_REAL',
+        uf: 'SP',
+      },
+    });
+    await tx.empresa.upsert({
+      where: { tenantId_cnpj: { tenantId: tenant.id, cnpj: '22222222000122' } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        cnpj: '22222222000122',
+        razaoSocial: 'Serviços Presumido Ltda',
+        regimeTributario: 'LUCRO_PRESUMIDO',
+        uf: 'SP',
+      },
+    });
   });
 
   console.log('Seed concluído.');
