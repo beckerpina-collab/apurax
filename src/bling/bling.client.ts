@@ -11,7 +11,10 @@
 //  - Respostas vêm embrulhadas em { data: ... }; rate limit ~3 req/s (429+Retry-After).
 // ============================================================================
 
+import { Logger } from '@nestjs/common';
 import { RateLimiter } from './rate-limiter';
+
+const log = new Logger('BlingClient');
 
 export const BLING_AUTH = 'https://www.bling.com.br/Api/v3/oauth/authorize';
 export const BLING_API = 'https://api.bling.com.br/Api/v3';
@@ -118,6 +121,7 @@ export async function blingGet<T = unknown>(
     if (res.status === 429 && attempt < 3) {
       const ra = Number(res.headers.get('Retry-After'));
       const wait = Number.isFinite(ra) && ra > 0 ? Math.min(ra, 20) : Math.min(2 * 2 ** attempt, 12);
+      log.warn(`Bling 429 em ${path} (tentativa ${attempt + 1}) — aguardando ${wait}s (Retry-After=${res.headers.get('Retry-After') ?? '—'}).`);
       await sleep(wait * 1000);
       continue;
     }

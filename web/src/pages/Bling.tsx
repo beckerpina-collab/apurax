@@ -14,11 +14,23 @@ import { api, isDemo } from '@/lib/api';
 import { useEmpresa } from '@/lib/empresa-context';
 import { brl, dataBR, dataHoraBR } from '@/lib/format';
 
+interface Varredura {
+  estado: 'varrendo' | 'concluida' | 'erro';
+  periodo: string;
+  encontradas: number;
+  enfileiradas: number;
+  paginas: number;
+  truncada?: boolean;
+  atualizadoEm: string;
+  erro?: string;
+}
+
 interface BlingStatus {
   conectado: boolean;
   expiraEm: string | null;
   escopos: string[];
   filaPendentes?: number;
+  varredura?: Varredura | null;
 }
 
 interface NotaSaida {
@@ -64,15 +76,15 @@ export default function Bling() {
   const [resultado, setResultado] = useState<PuxarSaidasResp | null>(null);
   const [importResultado, setImportResultado] = useState<ImportResp | null>(null);
 
-  async function carregarStatus() {
-    setCarregandoStatus(true);
+  async function carregarStatus(silent = false) {
+    if (!silent) setCarregandoStatus(true);
     try {
       const r = (await api.blingStatus(empresaId ?? undefined)) as BlingStatus;
       setStatus(r);
     } catch (e: any) {
-      toast.error(e?.message ?? 'Falha ao consultar o status do Bling.');
+      if (!silent) toast.error(e?.message ?? 'Falha ao consultar o status do Bling.');
     } finally {
-      setCarregandoStatus(false);
+      if (!silent) setCarregandoStatus(false);
     }
   }
 
@@ -80,6 +92,15 @@ export default function Bling() {
     carregarStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
+
+  // Enquanto há varredura em andamento OU fila pendente, atualiza sozinho (silencioso).
+  const trabalhando = status?.varredura?.estado === 'varrendo' || (status?.filaPendentes ?? 0) > 0;
+  useEffect(() => {
+    if (!trabalhando) return;
+    const id = setInterval(() => carregarStatus(true), 4000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabalhando, empresaId]);
 
   // Trata o retorno do callback OAuth (?bling=conectado|erro).
   useEffect(() => {
@@ -227,6 +248,30 @@ export default function Bling() {
                     <p className="text-sm text-muted-foreground">Nenhum escopo informado.</p>
                   )}
                 </div>
+                {status.varredura && (
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>
+                      {status.varredura.estado === 'varrendo' && (
+                        <RefreshCw className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Varredura {status.varredura.periodo}: <b>{status.varredura.encontradas}</b> nota(s) encontrada(s)
+                      {status.varredura.enfileiradas !== status.varredura.encontradas
+                        ? ` (${status.varredura.enfileiradas} nova(s) na fila)`
+                        : ''}
+                      {status.varredura.estado === 'varrendo'
+                        ? ' — em andamento…'
+                        : status.varredura.estado === 'concluida'
+                          ? ' — concluída.'
+                          : ` — erro: ${status.varredura.erro ?? 'falha na varredura'}`}
+                    </p>
+                    {status.varredura.truncada && (
+                      <p className="font-medium text-destructive">
+                        ⚠ Período muito grande: a varredura parou no limite de segurança. Reimporte em fatias menores
+                        (ex.: por semana) para garantir que nada ficou de fora.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {(status.filaPendentes ?? 0) > 0 && (
                   <p className="text-sm text-muted-foreground">
                     <RefreshCw className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />

@@ -22,9 +22,27 @@ const PAGE = 100;
 const PREVIEW_MAX = 2000; // teto só da PRÉ-VISUALIZAÇÃO (Listar); a importação não tem teto
 const MAX_PAGINAS = 1000; // backstop da varredura em 2º plano (~100 mil notas)
 
+/** Progresso de uma varredura de período (exposto no status p/ o usuário ver). */
+export interface VarreduraStatus {
+  estado: 'varrendo' | 'concluida' | 'erro';
+  periodo: string;
+  encontradas: number; // total de notas varridas no período
+  enfileiradas: number; // quantas eram novas na fila (≤ encontradas)
+  paginas: number;
+  truncada?: boolean; // true se bateu o backstop de MAX_PAGINAS (período pode ter mais)
+  atualizadoEm: string; // ISO
+  erro?: string;
+}
+
+// Uma varredura sem progresso há mais que isto é considerada "presa" (processo
+// reiniciou / fetch travou) e pode ser substituída por uma nova.
+const VARREDURA_STALE_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class BlingService {
   private readonly logger = new Logger(BlingService.name);
+  /** Progresso da última varredura por empresa (em memória; reinicia no deploy). */
+  private readonly varreduras = new Map<string, VarreduraStatus>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -75,7 +93,11 @@ export class BlingService {
 
   async status(empresaId: string) {
     const s = await this.token.statusConexao(this.prisma.tenantId, empresaId);
-    return { ...s, filaPendentes: await this.fila.pendentes() };
+    return {
+      ...s,
+      filaPendentes: await this.fila.pendentes(),
+      varredura: this.varreduras.get(this.chaveVarr(this.prisma.tenantId, empresaId)) ?? null,
+    };
   }
 
   /** Lista as NF-e de SAÍDA do período (pré-visualização; não baixa XML). */
@@ -105,26 +127,67 @@ export class BlingService {
    * e pela tela Documentos.
    */
   async importarSaidas(empresaId: string, dataInicial: string, dataFinal: string, _usuarioId?: string) {
-    // Garante conexão (lança se não conectado) e captura o tenant ANTES de ir p/ 2º plano.
-    await this.token.accessToken(this.prisma.tenantId, empresaId);
     const tenantId = this.prisma.tenantId;
+    const chave = this.chaveVarr(tenantId, empresaId);
+
+    // Evita varreduras concorrentes p/ a mesma empresa (duplicariam chamadas ao
+    // Bling) — mas só se a anterior ainda estiver VIVA (progrediu há pouco). Uma
+    // varredura "presa" (sem progresso há VARREDURA_STALE_MS) é substituível.
+    const emAndamento = this.varreduras.get(chave);
+    if (emAndamento?.estado === 'varrendo') {
+      const inativaHa = Date.now() - new Date(emAndamento.atualizadoEm).getTime();
+      if (inativaHa < VARREDURA_STALE_MS) {
+        return {
+          status: 'varrendo',
+          jaEmAndamento: true,
+          varredura: emAndamento,
+          filaPendentes: await this.fila.pendentes(),
+          observacao: `Já há uma varredura em andamento (${emAndamento.periodo}) — aguarde concluir antes de iniciar outra.`,
+        };
+      }
+      this.logger.warn(`Bling varredura ${empresaId}: substituindo varredura presa (${Math.round(inativaHa / 1000)}s sem progresso).`);
+    }
+
+    // Garante conexão (lança se não conectado) e captura o tenant ANTES de ir p/ 2º plano.
+    await this.token.accessToken(tenantId, empresaId);
+
+    this.varreduras.set(chave, {
+      estado: 'varrendo',
+      periodo: `${dataInicial} a ${dataFinal}`,
+      encontradas: 0,
+      enfileiradas: 0,
+      paginas: 0,
+      atualizadoEm: new Date().toISOString(),
+    });
 
     // Varre o período INTEIRO em segundo plano (sem o teto de 500) e enfileira
-    // cada nota. A resposta volta na hora; a fila baixa ~2 notas/segundo.
-    void this.varrerEEnfileirar(tenantId, empresaId, dataInicial, dataFinal);
+    // cada nota. A resposta volta na hora; a fila baixa ~2 notas/segundo. O .catch
+    // GARANTE que a trava ('varrendo') seja liberada mesmo se rejeitar fora do try.
+    void this.varrerEEnfileirar(tenantId, empresaId, dataInicial, dataFinal).catch((e) => {
+      const base = this.varreduras.get(chave);
+      if (base) {
+        this.varreduras.set(chave, { ...base, estado: 'erro', erro: (e as Error).message, atualizadoEm: new Date().toISOString() });
+      }
+      this.logger.error(`Bling varredura ${empresaId} (rejeição não tratada): ${(e as Error).message}`);
+    });
 
     return {
       status: 'varrendo',
+      varredura: this.varreduras.get(chave),
       filaPendentes: await this.fila.pendentes(),
       observacao:
-        'Varredura do período iniciada em segundo plano (sem limite de 500). As notas são enfileiradas e baixadas (~2/segundo). Acompanhe em "Atualizar status" — quando a fila zerar, todas as saídas estarão em Documentos; então rode a apuração.',
+        'Varredura do período iniciada em segundo plano (sem limite de 500). As notas são enfileiradas e baixadas (~2/segundo). Acompanhe em "Atualizar status" — o contador mostra quantas foram encontradas; quando a fila zerar, todas as saídas estarão em Documentos.',
     };
+  }
+
+  private chaveVarr(tenantId: string, empresaId: string): string {
+    return `${tenantId}:${empresaId}`;
   }
 
   /**
    * Varre TODAS as páginas do período (sem teto de 500) e enfileira cada nota.
-   * Roda em segundo plano: renova o token por página (varreduras longas) e
-   * NUNCA rejeita (erros são apenas logados). O blingLimiter rege o ritmo.
+   * Roda em segundo plano: renova o token por página (varreduras longas), publica
+   * o progresso em `varreduras` e NUNCA rejeita (erros são logados e registrados).
    */
   private async varrerEEnfileirar(
     tenantId: string,
@@ -132,12 +195,19 @@ export class BlingService {
     dataInicial: string,
     dataFinal: string,
   ): Promise<void> {
-    const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
-    const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
+    const chave = this.chaveVarr(tenantId, empresaId);
+    const atualizar = (patch: Partial<VarreduraStatus>) => {
+      const base = this.varreduras.get(chave);
+      if (base) this.varreduras.set(chave, { ...base, ...patch, atualizadoEm: new Date().toISOString() });
+    };
+    let encontradas = 0;
     let enfileiradas = 0;
-    let pagina = 1;
+    let pagina = 0;
     try {
-      for (; pagina <= MAX_PAGINAS; pagina += 1) {
+      // parse de data DENTRO do try: data inválida lançaria, e a trava precisa cair.
+      const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
+      const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
+      for (pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
         const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
         const lote = (await listInvoices(access, {
           pagina,
@@ -148,15 +218,24 @@ export class BlingService {
         })) as BlingInvoice[];
         if (!lote?.length) break;
         for (const nf of lote) {
-          if (nf?.id != null && (await this.fila.enfileirar(String(nf.id)))) enfileiradas += 1;
+          if (nf?.id == null) continue;
+          encontradas += 1;
+          if (await this.fila.enfileirar(String(nf.id))) enfileiradas += 1;
         }
+        atualizar({ encontradas, enfileiradas, paginas: pagina });
         if (lote.length < PAGE) break;
       }
-      await this.token.marcarSync(tenantId, empresaId).catch(() => undefined);
+      // Se saiu pelo teto de páginas (não por um lote curto), pode haver MAIS notas.
+      const truncada = pagina > MAX_PAGINAS;
+      await this.token
+        .marcarSync(tenantId, empresaId)
+        .catch((e) => this.logger.warn(`Bling marcarSync ${empresaId}: ${(e as Error).message}`));
+      atualizar({ estado: 'concluida', encontradas, enfileiradas, truncada });
       this.logger.log(
-        `Bling varredura ${empresaId} (${dataInicial}..${dataFinal}): ${enfileiradas} nota(s) enfileirada(s).`,
+        `Bling varredura ${empresaId} (${dataInicial}..${dataFinal}): ${encontradas} encontrada(s), ${enfileiradas} nova(s) na fila${truncada ? ' [TRUNCADA no backstop]' : ''}.`,
       );
     } catch (e) {
+      atualizar({ estado: 'erro', erro: (e as Error).message });
       this.logger.error(`Bling varredura ${empresaId}: ${(e as Error).message}`);
     }
   }
@@ -212,7 +291,11 @@ export class BlingService {
       } else {
         this.logger.warn(`NF ${invoiceId} sem XML utilizável na resposta do Bling.`);
       }
-      await this.token.marcarSync(cx.tenantId, cx.empresaId).catch(() => undefined);
+      // marcarSync é só informativo (não decide dedupe) — falha aqui NÃO deve
+      // re-disparar a fila (re-importaria a nota). Logamos para ter visibilidade.
+      await this.token
+        .marcarSync(cx.tenantId, cx.empresaId)
+        .catch((e) => this.logger.warn(`Bling marcarSync NF ${invoiceId}: ${(e as Error).message}`));
       return; // dono encontrado
     }
     this.logger.warn(`NF ${invoiceId}: nenhuma conexão dona (404/403 em todas).`);
