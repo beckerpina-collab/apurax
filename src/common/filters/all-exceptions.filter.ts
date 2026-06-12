@@ -24,7 +24,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      message = exception.getResponse();
+      // getResponse() pode ser string ou objeto { statusCode, message, error }.
+      // O 'message' interno pode ser string OU array (class-validator).
+      // Normalizamos SEMPRE para uma string — senão o cliente recebe um objeto
+      // e exibe "[object Object]".
+      const resBody = exception.getResponse();
+      if (typeof resBody === 'string') {
+        message = resBody;
+      } else {
+        const inner = (resBody as { message?: unknown; error?: unknown }).message;
+        message = Array.isArray(inner)
+          ? inner.join('; ')
+          : typeof inner === 'string'
+            ? inner
+            : ((resBody as { error?: unknown }).error ?? 'Erro');
+      }
     } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === 'P2002') {
         status = HttpStatus.CONFLICT;

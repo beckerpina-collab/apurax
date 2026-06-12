@@ -55,8 +55,14 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `Erro ${res.status}`);
+    const body = (await res.json().catch(() => ({}))) as { message?: unknown };
+    const m = body.message;
+    const msg = Array.isArray(m)
+      ? m.join('; ')
+      : typeof m === 'string' && m.trim()
+        ? m
+        : `Erro ${res.status}`;
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }
