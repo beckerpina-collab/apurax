@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, Calculator, DownloadCloud, Plug, Receipt, RefreshCw } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Calculator, DownloadCloud, Plug, Receipt, RefreshCw, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
@@ -188,6 +188,21 @@ export default function Bling() {
     }
   }
 
+  const [parando, setParando] = useState(false);
+  async function pararImportacao() {
+    if (!empresaId) return;
+    setParando(true);
+    try {
+      const r = (await api.blingPararImportacao(empresaId)) as { filaRemovidas?: number };
+      toast.success(`Importação interrompida — ${r.filaRemovidas ?? 0} nota(s) removida(s) da fila.`);
+      await carregarStatus();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Falha ao parar a importação.');
+    } finally {
+      setParando(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -198,6 +213,12 @@ export default function Bling() {
           <RefreshCw className={carregandoStatus ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} />
           Atualizar status
         </Button>
+        {trabalhando && (
+          <Button variant="destructive" onClick={pararImportacao} disabled={parando || !empresaId}>
+            {parando ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Square className="mr-2 h-4 w-4" />}
+            Parar importação
+          </Button>
+        )}
       </PageHeader>
 
       {!empresaId && (

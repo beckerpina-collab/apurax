@@ -329,4 +329,12 @@ export const api = {
     }
     return http('/bling/importar-saidas', { method: 'POST', body: JSON.stringify({ empresaId, dataInicial, dataFinal }) });
   },
+
+  async blingPararImportacao(empresaId: string) {
+    if (DEMO) {
+      await delay();
+      return { ok: true, filaRemovidas: 0, filaPendentes: 0, observacao: 'Importação interrompida (demo).' };
+    }
+    return http('/bling/parar-importacao', { method: 'POST', body: JSON.stringify({ empresaId }) });
+  },
 };

@@ -88,6 +88,20 @@ export class BlingFilaService implements OnModuleDestroy {
     return this.filaMem?.enfileirar(invoiceId) ?? false;
   }
 
+  /**
+   * Esvazia a fila (parar importação). No BullMQ remove waiting+delayed (drain);
+   * o job ativo no momento termina (concurrency 1 → no máximo +1 nota). Retorna
+   * quantas notas estavam pendentes antes de limpar.
+   */
+  async limpar(): Promise<number> {
+    if (this.queue) {
+      const antes = await this.pendentes();
+      await this.queue.drain(true).catch((e) => this.logger.warn(`drain da fila: ${(e as Error).message}`));
+      return antes;
+    }
+    return this.filaMem?.limpar() ?? 0;
+  }
+
   /** Quantas notas aguardam ou estão em processamento. */
   async pendentes(): Promise<number> {
     if (this.queue) {

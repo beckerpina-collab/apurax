@@ -39,6 +39,14 @@ export class FilaSequencial {
     return this.fila.length + (this.rodando ? 1 : 0);
   }
 
+  /** Esvazia a fila (cancela o pendente). O item em execução termina. Retorna quantos removeu. */
+  limpar(): number {
+    const n = this.fila.length;
+    this.fila = [];
+    this.pendentes.clear();
+    return n;
+  }
+
   /** Enfileira; retorna false se o item já estava pendente (dedupe). */
   enfileirar(chave: string): boolean {
     if (this.pendentes.has(chave)) return false;

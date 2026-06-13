@@ -24,7 +24,7 @@ const MAX_PAGINAS = 1000; // backstop da varredura em 2º plano (~100 mil notas)
 
 /** Progresso de uma varredura de período (exposto no status p/ o usuário ver). */
 export interface VarreduraStatus {
-  estado: 'varrendo' | 'concluida' | 'erro';
+  estado: 'varrendo' | 'concluida' | 'erro' | 'cancelada';
   periodo: string;
   encontradas: number; // total de notas varridas no período
   enfileiradas: number; // quantas eram novas na fila (≤ encontradas)
@@ -47,6 +47,8 @@ export class BlingService {
   private readonly logger = new Logger(BlingService.name);
   /** Progresso da última varredura por empresa (em memória; reinicia no deploy). */
   private readonly varreduras = new Map<string, VarreduraStatus>();
+  /** Chaves de varredura marcadas para CANCELAR (a paginação interrompe). */
+  private readonly cancelamentos = new Set<string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -155,6 +157,7 @@ export class BlingService {
     // Garante conexão (lança se não conectado) e captura o tenant ANTES de ir p/ 2º plano.
     await this.token.accessToken(tenantId, empresaId);
 
+    this.cancelamentos.delete(chave); // nova varredura zera um cancelamento anterior
     this.varreduras.set(chave, {
       estado: 'varrendo',
       periodo: `${dataInicial} a ${dataFinal}`,
@@ -192,6 +195,30 @@ export class BlingService {
   }
 
   /**
+   * PARA a importação: cancela a varredura em andamento (a paginação interrompe
+   * na próxima página) e ESVAZIA a fila (no máx. 1 nota em execução conclui).
+   * A fila é compartilhada, então limpa as pendências de todas as empresas.
+   */
+  async pararImportacao(empresaId: string) {
+    const tenantId = this.prisma.tenantId;
+    const chave = this.chaveVarr(tenantId, empresaId);
+    this.cancelamentos.add(chave);
+    const removidas = await this.fila.limpar();
+    const v = this.varreduras.get(chave);
+    if (v && v.estado === 'varrendo') {
+      this.varreduras.set(chave, { ...v, estado: 'cancelada', atualizadoEm: new Date().toISOString() });
+    }
+    this.logger.warn(`Bling: importação parada (empresa ${empresaId}) — ${removidas} nota(s) removida(s) da fila.`);
+    return {
+      ok: true,
+      filaRemovidas: removidas,
+      filaPendentes: await this.fila.pendentes(),
+      observacao:
+        'Importação interrompida: a varredura para na próxima página e a fila foi esvaziada. No máximo 1 nota que já estava em processamento conclui.',
+    };
+  }
+
+  /**
    * Varre TODAS as páginas do período (sem teto de 500) e enfileira cada nota.
    * Roda em segundo plano: renova o token por página (varreduras longas), publica
    * o progresso em `varreduras` e NUNCA rejeita (erros são logados e registrados).
@@ -215,6 +242,11 @@ export class BlingService {
       const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
       const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
       for (pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
+        if (this.cancelamentos.has(chave)) {
+          atualizar({ estado: 'cancelada' });
+          this.logger.warn(`Bling varredura ${empresaId}: cancelada pelo usuário na página ${pagina}.`);
+          return;
+        }
         const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
         const lote = (await listInvoices(access, {
           pagina,

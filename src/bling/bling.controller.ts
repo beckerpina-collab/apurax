@@ -58,4 +58,11 @@ export class BlingController {
   importar(@Body() dto: PuxarSaidasDto, @CurrentUser() user: UsuarioAutenticado) {
     return this.bling.importarSaidas(dto.empresaId, dto.dataInicial, dto.dataFinal, user.userId);
   }
+
+  /** PARA a importação em andamento: cancela a varredura e esvazia a fila. */
+  @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
+  @Post('parar-importacao')
+  parar(@Body() dto: ConectarBlingDto) {
+    return this.bling.pararImportacao(dto.empresaId);
+  }
 }
