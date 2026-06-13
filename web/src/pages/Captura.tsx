@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DownloadCloud, RefreshCw, ShieldCheck, FileText, Hash } from 'lucide-react';
+import { DownloadCloud, RefreshCw, ShieldCheck, FileText, Hash, Stamp } from 'lucide-react';
 import { toast } from 'sonner';
 
 import PageHeader from '@/components/PageHeader';
@@ -9,11 +9,30 @@ import StatusPill from '@/components/StatusPill';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { api } from '@/lib/api';
 import { useEmpresa } from '@/lib/empresa-context';
 import { dataHoraBR } from '@/lib/format';
+
+type TipoEvento = '210210' | '210200' | '210220' | '210240';
+const EVENTOS: { value: TipoEvento; label: string; dica: string }[] = [
+  { value: '210210', label: 'Ciência da Operação', dica: 'Libera o download do XML completo na próxima sincronização.' },
+  { value: '210200', label: 'Confirmação da Operação', dica: 'Confirma que a compra/operação ocorreu (conclusivo).' },
+  { value: '210220', label: 'Desconhecimento da Operação', dica: 'Você não reconhece esta operação (conclusivo).' },
+  { value: '210240', label: 'Operação não Realizada', dica: 'A operação não se concretizou — exige justificativa.' },
+];
+
+interface ResultadoManif {
+  ok: boolean;
+  cStat: string;
+  xMotivo: string;
+  mensagem: string;
+}
 
 type ModeloSync = 'NFE' | 'CTE';
 
@@ -76,6 +95,42 @@ export default function Captura() {
     }
   }
 
+  // ---- Manifestação do destinatário (NF-e) ----
+  const [chaveManif, setChaveManif] = useState('');
+  const [tpEvento, setTpEvento] = useState<TipoEvento>('210210');
+  const [xJust, setXJust] = useState('');
+  const [manifestando, setManifestando] = useState(false);
+  const [resultadoManif, setResultadoManif] = useState<ResultadoManif | null>(null);
+
+  async function manifestar() {
+    if (!empresaId) {
+      toast.error('Selecione a empresa no topo antes de manifestar.');
+      return;
+    }
+    const chave = chaveManif.replace(/\D/g, '');
+    if (chave.length !== 44) {
+      toast.error('Informe a chave de acesso da NF-e (44 dígitos).');
+      return;
+    }
+    if (tpEvento === '210240' && (xJust.trim().length < 15 || xJust.trim().length > 255)) {
+      toast.error('Para "Operação não Realizada", a justificativa deve ter entre 15 e 255 caracteres.');
+      return;
+    }
+    setManifestando(true);
+    setResultadoManif(null);
+    try {
+      const r = (await api.manifestar(empresaId, chave, tpEvento, tpEvento === '210240' ? xJust.trim() : undefined)) as ResultadoManif;
+      setResultadoManif(r);
+      if (r.ok) toast.success(r.mensagem);
+      else toast.error(r.mensagem);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao manifestar na SEFAZ.');
+    } finally {
+      setManifestando(false);
+    }
+  }
+
+  const eventoSel = EVENTOS.find((e) => e.value === tpEvento)!;
   const rotuloModelo = resultado?.modelo === 'CTE' ? 'CT-e' : 'NF-e';
 
   return (
@@ -147,6 +202,68 @@ export default function Captura() {
           </div>
         </div>
       )}
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Stamp className="h-5 w-5 text-primary" />
+            Manifestação do destinatário (NF-e)
+          </CardTitle>
+          <CardDescription>
+            Para notas em que você é o destinatário, a SEFAZ entrega só um <b>resumo</b>. Manifeste a{' '}
+            <b>Ciência da Operação</b> para liberar o <b>XML completo</b> (baixe na próxima sincronização). As demais
+            situações (confirmação, desconhecimento, não realizada) são conclusivas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="chaveManif">Chave de acesso da NF-e (44 dígitos)</Label>
+              <Input
+                id="chaveManif"
+                value={chaveManif}
+                onChange={(e) => setChaveManif(e.target.value)}
+                placeholder="3526..."
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tpEvento">Situação</Label>
+              <Select value={tpEvento} onValueChange={(v) => setTpEvento(v as TipoEvento)}>
+                <SelectTrigger id="tpEvento">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENTOS.map((e) => (
+                    <SelectItem key={e.value} value={e.value}>
+                      {e.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">{eventoSel.dica}</p>
+          {tpEvento === '210240' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="xJust">Justificativa (15 a 255 caracteres)</Label>
+              <Textarea id="xJust" rows={2} value={xJust} onChange={(e) => setXJust(e.target.value)} />
+            </div>
+          )}
+          <Button onClick={manifestar} disabled={manifestando || !empresaId}>
+            {manifestando ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Stamp className="mr-2 h-4 w-4" />}
+            Manifestar
+          </Button>
+          {resultadoManif && (
+            <Alert variant={resultadoManif.ok ? 'default' : 'destructive'}>
+              <AlertTitle>
+                {resultadoManif.ok ? 'Manifestação registrada' : 'Não registrada'} — cStat {resultadoManif.cStat}
+              </AlertTitle>
+              <AlertDescription>{resultadoManif.mensagem}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

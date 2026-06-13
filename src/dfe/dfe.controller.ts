@@ -4,6 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CertificadoService } from './certificado.service';
 import { DistribuicaoService } from './distribuicao.service';
 import { ArmazenarCertificadoDto } from './dto/armazenar-certificado.dto';
+import { ManifestarDto } from './dto/manifestar.dto';
 import { SincronizarDto } from './dto/sincronizar.dto';
 
 @Controller()
@@ -34,5 +35,12 @@ export class DfeController {
   @Get('distribuicao/cursores')
   cursores() {
     return this.distribuicao.listarCursores();
+  }
+
+  /** Manifestação do destinatário (NF-e): Ciência/Confirmação/Desconhecimento/Não realizada. */
+  @Roles(Role.ADMIN, Role.CONTADOR)
+  @Post('distribuicao/manifestar')
+  manifestar(@Body() dto: ManifestarDto) {
+    return this.distribuicao.manifestar(dto.empresaId, dto.chave, dto.tpEvento, dto.xJust);
   }
 }

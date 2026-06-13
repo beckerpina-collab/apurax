@@ -7,7 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CertificadoService } from './certificado.service';
 import { avaliarResposta } from './distribuicao.state';
 import { DocZipService } from './doc-zip.service';
+import { TipoEventoManifestacao } from './manifestacao';
 import { ConsultaDfeParams, ModeloDfe, SEFAZ_DFE_CLIENT, SefazDfeClient } from './sefaz-dfe.client';
+import { SefazEventoSoapClient } from './sefaz-evento-soap.client';
 
 const MAX_CICLOS = 10; // teto por chamada (cada ciclo = 1 consulta à SEFAZ)
 
@@ -32,7 +34,63 @@ export class DistribuicaoService {
     private readonly cte: CteService,
     private readonly auditoria: AuditoriaService,
     private readonly config: ConfigService,
+    private readonly evento: SefazEventoSoapClient,
   ) {}
+
+  /**
+   * Manifestação do destinatário (NF-e): Ciência (210210) destrava o XML completo
+   * na próxima sincronização; Confirmação/Desconhecimento/Não realizada são
+   * conclusivas. Assina com o A1 e envia ao Ambiente Nacional.
+   */
+  async manifestar(empresaId: string, chave: string, tpEvento: TipoEventoManifestacao, xJust?: string) {
+    const empresa = await this.prisma.scoped.empresa.findFirst({ where: { id: empresaId } });
+    if (!empresa) {
+      throw new NotFoundException('Empresa não encontrada para este tenant.');
+    }
+    const tpAmb = Number(this.config.get('APURAX_DFE_TPAMB') ?? 2);
+    const { pfx, senha } = await this.certificados.carregarEmMemoria(empresa.id);
+    try {
+      const { privateKeyPem, certDerBase64, cnpj } = await this.certificados.carregarPem(empresa.id);
+      const ret = await this.evento.manifestar({
+        chave,
+        cnpj: cnpj || empresa.cnpj,
+        tpEvento,
+        xJust,
+        tpAmb,
+        dhEvento: this.dhEventoSP(),
+        pfx,
+        senha,
+        privateKeyPem,
+        certDerBase64,
+      });
+      await this.auditoria.registrar({
+        tipo: 'NFE_MANIFESTACAO',
+        entidade: 'DocumentoFiscal',
+        entidadeId: chave,
+        dados: { tpEvento, cStat: ret.cStat, xMotivo: ret.xMotivo },
+      });
+      // 135/136 = registrado; 573 = duplicidade (já manifestado antes) → tratamos como ok.
+      const ok = ['135', '136', '573'].includes(ret.cStat);
+      return {
+        ok,
+        cStat: ret.cStat,
+        xMotivo: ret.xMotivo,
+        nProt: ret.nProt,
+        mensagem: ok
+          ? `Manifestação registrada (cStat ${ret.cStat} — ${ret.xMotivo}). Sincronize NF-e novamente para baixar o XML completo.`
+          : `Manifestação não registrada: cStat ${ret.cStat} — ${ret.xMotivo}.`,
+      };
+    } finally {
+      pfx.fill(0);
+    }
+  }
+
+  /** Data/hora do evento no fuso de São Paulo (-03:00), formato da SEFAZ. */
+  private dhEventoSP(): string {
+    const sp = new Date(Date.now() - 3 * 3600 * 1000); // UTC-3, sem DST
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${sp.getUTCFullYear()}-${p(sp.getUTCMonth() + 1)}-${p(sp.getUTCDate())}T${p(sp.getUTCHours())}:${p(sp.getUTCMinutes())}:${p(sp.getUTCSeconds())}-03:00`;
+  }
 
   /** Varre a Distribuição DFe da empresa (NF-e ou CT-e), respeitando NSU e cooldown. */
   async sincronizar(empresaId: string, modelo: ModeloDfe = 'NFE') {

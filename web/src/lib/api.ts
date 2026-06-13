@@ -249,6 +249,27 @@ export const api = {
     return http<typeof CURSORES>('/distribuicao/cursores');
   },
 
+  async manifestar(
+    empresaId: string,
+    chave: string,
+    tpEvento: '210210' | '210200' | '210220' | '210240',
+    xJust?: string,
+  ) {
+    if (DEMO) {
+      await delay(700);
+      return {
+        ok: true,
+        cStat: '135',
+        xMotivo: 'Evento registrado e vinculado a NF-e (demo)',
+        mensagem: 'Manifestação registrada (demo). Sincronize NF-e para baixar o XML completo.',
+      };
+    }
+    return http('/distribuicao/manifestar', {
+      method: 'POST',
+      body: JSON.stringify({ empresaId, chave, tpEvento, xJust }),
+    });
+  },
+
   async salvarCertificado(empresaId: string, pfxBase64: string, senha: string, notAfter?: string) {
     if (DEMO) {
       await delay(700);

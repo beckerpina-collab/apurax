@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createSecureContext } from 'node:tls';
+import * as forge from 'node-forge';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoEnvelopeService } from './crypto-envelope.service';
@@ -103,5 +104,36 @@ export class CertificadoService {
     });
 
     return this.crypto.decifrarCertificado(cert);
+  }
+
+  /**
+   * Extrai chave privada + certificado (PEM) do A1 ativo, para assinatura XML-DSig
+   * (manifestação). node-forge lê PKCS#12 legado (RC2/3DES) que o OpenSSL 3 recusa.
+   * O chamador NÃO precisa zerar nada (os PEMs ficam só em memória do processo).
+   */
+  async carregarPem(empresaId: string): Promise<{ privateKeyPem: string; certPem: string; certDerBase64: string; cnpj: string }> {
+    const { pfx, senha } = await this.carregarEmMemoria(empresaId);
+    const cert = await this.prisma.scoped.certificadoDigital.findFirst({
+      where: { empresaId, status: 'ATIVO' },
+      orderBy: { criadoEm: 'desc' },
+      select: { cnpj: true },
+    });
+    try {
+      const p12Asn1 = forge.asn1.fromDer(forge.util.createBuffer(pfx.toString('binary')));
+      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, senha);
+      const keyBag =
+        p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0] ??
+        p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0];
+      const certBag = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0];
+      if (!keyBag?.key || !certBag?.cert) {
+        throw new Error('PFX sem chave privada ou certificado utilizável.');
+      }
+      const privateKeyPem = forge.pki.privateKeyToPem(keyBag.key);
+      const certPem = forge.pki.certificateToPem(certBag.cert);
+      const certDerBase64 = forge.util.encode64(forge.asn1.toDer(forge.pki.certificateToAsn1(certBag.cert)).getBytes());
+      return { privateKeyPem, certPem, certDerBase64, cnpj: cert?.cnpj ?? '' };
+    } finally {
+      pfx.fill(0);
+    }
   }
 }

@@ -11,6 +11,7 @@ import { DistribuicaoService } from './distribuicao.service';
 import { DocZipService } from './doc-zip.service';
 import { SefazDfeSoapClient } from './sefaz-dfe-soap.client';
 import { SEFAZ_DFE_CLIENT } from './sefaz-dfe.client';
+import { SefazEventoSoapClient } from './sefaz-evento-soap.client';
 
 @Module({
   imports: [AuditoriaModule, FiscalModule, CteModule],
@@ -27,6 +28,7 @@ import { SEFAZ_DFE_CLIENT } from './sefaz-dfe.client';
       inject: [ConfigService],
     },
     { provide: SEFAZ_DFE_CLIENT, useClass: SefazDfeSoapClient },
+    SefazEventoSoapClient,
     CryptoEnvelopeService,
     DocZipService,
     CertificadoService,
