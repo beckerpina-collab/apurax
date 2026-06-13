@@ -21,7 +21,7 @@ const navItems = [
   { to: '/documentos-saida', label: 'Documentos de Saída', icon: FileUp },
   { to: '/importar', label: 'Importar XML', icon: Upload },
   { to: '/apuracoes', label: 'Apurações', icon: Calculator },
-  { to: '/bling', label: 'Bling (saídas)', icon: Plug },
+  { to: '/bling', label: 'Importar Saída (Bling)', icon: Plug },
   { to: '/validador', label: 'Validador NCM', icon: BadgeCheck },
   { to: '/reforma', label: 'Reforma CBS/IBS', icon: ArrowLeftRight },
   { to: '/configuracao', label: 'Configuração', icon: Settings },
