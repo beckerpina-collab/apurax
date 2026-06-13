@@ -67,25 +67,28 @@ const IMPOSTOS: Array<{ label: string; value: ImpostoTipo }> = [
   { label: 'ISS', value: 'iss' },
 ];
 
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const ANO_ATUAL = Number(mesAtualSP().slice(0, 4));
+const ANOS = [ANO_ATUAL, ANO_ATUAL - 1, ANO_ATUAL - 2, ANO_ATUAL - 3];
+
 export default function Apuracoes() {
   const { empresaId } = useEmpresa();
   const competenciaAtual = mesAtualSP(); // 'YYYY-MM' no fuso de São Paulo
 
-  // ---- Aba Créditos ----
+  // ---- Aba Créditos (filtro Ano+Mês igual ao Painel; default = ano/mês atuais) ----
   const [creditos, setCreditos] = useState<Apuracao[]>([]);
   const [carregandoCreditos, setCarregandoCreditos] = useState(false);
-  // '' = todos os meses; default = mês atual (São Paulo)
-  const [mesCreditos, setMesCreditos] = useState<string>(competenciaAtual);
+  const [anoCred, setAnoCred] = useState<string>(competenciaAtual.slice(0, 4));
+  const [mesCred, setMesCred] = useState<string>(String(Number(competenciaAtual.slice(5, 7))));
 
   useEffect(() => {
     let ativo = true;
     (async () => {
       setCarregandoCreditos(true);
       try {
-        const [anoStr, mesStr] = mesCreditos.split('-');
         const dados = (await api.apuracoes(
-          anoStr ? Number(anoStr) : undefined,
-          mesStr ? Number(mesStr) : undefined,
+          anoCred === 'todos' ? undefined : Number(anoCred),
+          mesCred === 'todos' ? undefined : Number(mesCred),
         )) as Apuracao[];
         if (ativo) setCreditos(dados);
       } catch (e) {
@@ -97,7 +100,10 @@ export default function Apuracoes() {
     return () => {
       ativo = false;
     };
-  }, [mesCreditos]);
+  }, [anoCred, mesCred]);
+
+  const periodoCredLabel =
+    anoCred === 'todos' ? 'todos os períodos' : mesCred === 'todos' ? anoCred : `${MESES[Number(mesCred) - 1]}/${anoCred}`;
 
   // ---- Aba Imposto a pagar (competência pré-selecionada = mês atual) ----
   const [tipo, setTipo] = useState<ImpostoTipo>('icms');
@@ -151,18 +157,38 @@ export default function Apuracoes() {
                   {carregandoCreditos && (
                     <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
                   )}
-                  <Input
-                    type="month"
-                    value={mesCreditos}
-                    onChange={(e) => setMesCreditos(e.target.value)}
-                    className="w-[160px]"
-                    aria-label="Mês dos créditos"
-                  />
-                  {mesCreditos && (
-                    <Button variant="ghost" size="sm" onClick={() => setMesCreditos('')}>
-                      Todos os meses
-                    </Button>
-                  )}
+                  <Select
+                    value={anoCred}
+                    onValueChange={(v) => {
+                      setAnoCred(v);
+                      if (v === 'todos') setMesCred('todos');
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os anos</SelectItem>
+                      {ANOS.map((a) => (
+                        <SelectItem key={a} value={String(a)}>
+                          {a}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={mesCred} onValueChange={setMesCred} disabled={anoCred === 'todos'}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os meses</SelectItem>
+                      {MESES.map((m, i) => (
+                        <SelectItem key={m} value={String(i + 1)}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
@@ -172,8 +198,8 @@ export default function Apuracoes() {
                   icon={Receipt}
                   title="Nenhum crédito apurado"
                   description={
-                    mesCreditos
-                      ? `Nenhum crédito em ${mesCreditos}. Escolha outro mês, clique em "Todos os meses", ou importe documentos de entrada.`
+                    anoCred !== 'todos'
+                      ? `Nenhum crédito em ${periodoCredLabel}. Troque o período, selecione "Todos os anos", ou importe documentos de entrada.`
                       : 'Importe documentos de entrada ou sincronize com a SEFAZ para gerar créditos.'
                   }
                 />

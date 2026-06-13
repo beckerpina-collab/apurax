@@ -173,10 +173,11 @@ export const api = {
   async documentos(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();
-      if (!ano || !mes) return DOCUMENTOS;
+      if (!ano) return DOCUMENTOS;
       return DOCUMENTOS.filter((d) => {
         const dt = new Date(d.dataEmissao);
-        return dt.getUTCFullYear() === ano && dt.getUTCMonth() + 1 === mes;
+        if (dt.getUTCFullYear() !== ano) return false;
+        return !mes || dt.getUTCMonth() + 1 === mes;
       });
     }
     const qs = new URLSearchParams();

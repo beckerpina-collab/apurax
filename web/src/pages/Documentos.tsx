@@ -4,14 +4,14 @@ import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { brl, cnpjMask, dataBR, mesAtualSP } from '@/lib/format';
+
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 type Modelo = 'NF-e' | 'CT-e' | 'NFS-e';
 
@@ -31,21 +31,25 @@ type Filtro = 'Todos' | Modelo;
 
 const FILTROS: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
 
+const COMP_ATUAL = mesAtualSP(); // 'YYYY-MM' no fuso de São Paulo
+const ANO_ATUAL = Number(COMP_ATUAL.slice(0, 4));
+const ANOS = [ANO_ATUAL, ANO_ATUAL - 1, ANO_ATUAL - 2, ANO_ATUAL - 3];
+
 export default function Documentos() {
   const [docs, setDocs] = useState<DocumentoEntrada[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
-  // '' = todos os meses; default = mês atual (São Paulo)
-  const [mes, setMes] = useState<string>(mesAtualSP());
+  // Filtro igual ao Painel: 'todos' = sem filtro. Default = ano e mês atuais.
+  const [ano, setAno] = useState<string>(String(ANO_ATUAL));
+  const [mes, setMes] = useState<string>(String(Number(COMP_ATUAL.slice(5, 7))));
 
   useEffect(() => {
     let ativo = true;
     setLoading(true);
-    const [anoStr, mesStr] = mes.split('-');
-    const ano = anoStr ? Number(anoStr) : undefined;
-    const mesNum = mesStr ? Number(mesStr) : undefined;
+    const anoNum = ano === 'todos' ? undefined : Number(ano);
+    const mesNum = mes === 'todos' ? undefined : Number(mes);
     api
-      .documentos(ano, mesNum)
+      .documentos(anoNum, mesNum)
       .then((d) => {
         if (ativo) setDocs(d as DocumentoEntrada[]);
       })
@@ -58,7 +62,7 @@ export default function Documentos() {
     return () => {
       ativo = false;
     };
-  }, [mes]);
+  }, [ano, mes]);
 
   const totais = useMemo(() => {
     return docs.reduce(
@@ -77,31 +81,47 @@ export default function Documentos() {
     [docs, filtro],
   );
 
+  const periodoLabel =
+    ano === 'todos' ? 'todos os períodos' : mes === 'todos' ? ano : `${MESES[Number(mes) - 1]}/${ano}`;
+
   return (
     <div>
       <PageHeader
         title="Documentos de entrada"
         description="NF-e, CT-e e NFS-e capturados ou importados — base dos créditos."
       >
-        <div className="flex items-end gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="mes" className="text-xs">
-              Mês
-            </Label>
-            <Input
-              id="mes"
-              type="month"
-              value={mes}
-              onChange={(e) => setMes(e.target.value)}
-              className="w-[160px]"
-            />
-          </div>
-          {mes && (
-            <Button variant="ghost" size="sm" onClick={() => setMes('')}>
-              Todos os meses
-            </Button>
-          )}
-        </div>
+        <Select
+          value={ano}
+          onValueChange={(v) => {
+            setAno(v);
+            if (v === 'todos') setMes('todos');
+          }}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Ano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os anos</SelectItem>
+            {ANOS.map((a) => (
+              <SelectItem key={a} value={String(a)}>
+                {a}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={mes} onValueChange={setMes} disabled={ano === 'todos'}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os meses</SelectItem>
+            {MESES.map((m, i) => (
+              <SelectItem key={m} value={String(i + 1)}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </PageHeader>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -135,8 +155,8 @@ export default function Documentos() {
               icon={FileX}
               title="Nenhum documento"
               description={
-                mes
-                  ? `Nenhum documento de entrada${filtro === 'Todos' ? '' : ` (${filtro})`} em ${mes}. Escolha outro mês ou clique em "Todos os meses".`
+                ano !== 'todos'
+                  ? `Nenhum documento de entrada${filtro === 'Todos' ? '' : ` (${filtro})`} em ${periodoLabel}. Troque o período ou selecione "Todos os anos".`
                   : filtro === 'Todos'
                     ? 'Sincronize a SEFAZ ou importe um XML para começar a capturar créditos.'
                     : `Nenhum documento do modelo ${filtro} encontrado.`
