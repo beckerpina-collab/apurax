@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
-  { to: '/captura', label: 'Captura SEFAZ', icon: DownloadCloud },
+  { to: '/captura', label: 'Captura SEFAZ (Entrada)', icon: DownloadCloud },
   { to: '/documentos', label: 'Documentos de Entrada', icon: FileDown },
   { to: '/documentos-saida', label: 'Documentos de Saída', icon: FileUp },
   { to: '/importar', label: 'Importar XML', icon: Upload },
