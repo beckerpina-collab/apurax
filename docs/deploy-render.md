@@ -23,7 +23,7 @@ git branch -M main && git push -u origin main
 ## Fase 2 — Segredos manuais (web service → Environment)
 O blueprint já injeta `DATABASE_URL` (do Postgres) e gera o `JWT_SECRET`. Defina à mão:
 - `APURAX_KMS_MASTER_KEY` → gere um forte: `openssl rand -hex 32` (⚠️ **definitivo** — trocar depois torna tokens/A1 cifrados ilegíveis).
-- `BLING_CLIENT_SECRET` → `fdfb56733a6d56be4759fa629010d7d82ddf9fb93d0eb98cdb706d146115`.
+- `BLING_CLIENT_SECRET` → o client_secret do app Bling (do painel do desenvolvedor Bling). **NUNCA** commitar este valor — defina-o só no painel do Render (Environment).
 - `ANTHROPIC_API_KEY` → opcional (validador de NCM real).
 
 Salve → o Render redeploya.

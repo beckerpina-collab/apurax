@@ -71,7 +71,7 @@ printf 'postgresql://apurax_app:DB_PASS@localhost/apurax?host=/cloudsql/CONNECTI
 # segredos fortes:
 openssl rand -hex 32 | gcloud secrets create apurax-jwt --data-file=-
 openssl rand -hex 32 | gcloud secrets create apurax-kms --data-file=-   # custódia A1 + tokens Bling
-printf 'fdfb56733a6d56be4759fa629010d7d82ddf9fb93d0eb98cdb706d146115' \
+printf 'SEU_BLING_CLIENT_SECRET' \
   | gcloud secrets create apurax-bling-secret --data-file=-
 # (opcional, p/ o validador de NCM real) printf 'SUA_ANTHROPIC_KEY' | gcloud secrets create apurax-anthropic --data-file=-
 ```
