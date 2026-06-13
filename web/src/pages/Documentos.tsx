@@ -22,10 +22,13 @@ interface Documento {
   tipoOperacao: TipoOperacao;
   emitente: string;
   cnpjEmitente: string;
+  cnpjDestinatario: string;
   dataEmissao: string;
   valor: number;
   creditoIcms: number;
   creditoPisCofins: number;
+  bcIcms: number; // base de cálculo do ICMS (soma dos itens)
+  icms: number; // ICMS próprio (soma dos itens) — débito na saída
 }
 
 type Filtro = 'Todos' | Modelo;
@@ -77,12 +80,14 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   const totais = useMemo(() => {
     return docs.reduce(
       (acc, d) => {
-        acc.valor += d.valor;
-        acc.icms += d.creditoIcms;
-        acc.pisCofins += d.creditoPisCofins;
+        acc.valor += d.valor ?? 0;
+        acc.credIcms += d.creditoIcms ?? 0;
+        acc.credPisCofins += d.creditoPisCofins ?? 0;
+        acc.bcIcms += d.bcIcms ?? 0;
+        acc.icms += d.icms ?? 0;
         return acc;
       },
-      { valor: 0, icms: 0, pisCofins: 0 },
+      { valor: 0, credIcms: 0, credPisCofins: 0, bcIcms: 0, icms: 0 },
     );
   }, [docs]);
 
@@ -139,21 +144,24 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
         </Select>
       </PageHeader>
 
-      <div
-        className={`mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 ${ehEntrada ? 'lg:grid-cols-4' : 'lg:grid-cols-2'}`}
-      >
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Documentos" value={docs.length} subtitle="no período selecionado" icon={FileText} />
         <StatCard title="Valor total" value={brl(totais.valor)} subtitle="soma das notas" icon={Receipt} variant="primary" />
-        {ehEntrada && (
+        {ehEntrada ? (
           <>
-            <StatCard title="Crédito ICMS" value={brl(totais.icms)} subtitle="potencial sobre entradas" icon={ShieldCheck} />
+            <StatCard title="Crédito ICMS" value={brl(totais.credIcms)} subtitle="potencial sobre entradas" icon={ShieldCheck} />
             <StatCard
               title="Crédito PIS/COFINS"
-              value={brl(totais.pisCofins)}
+              value={brl(totais.credPisCofins)}
               subtitle="potencial sobre entradas"
               icon={Coins}
               variant="accent"
             />
+          </>
+        ) : (
+          <>
+            <StatCard title="BC ICMS" value={brl(totais.bcIcms)} subtitle="base de cálculo (saídas)" icon={ShieldCheck} />
+            <StatCard title="ICMS de saída" value={brl(totais.icms)} subtitle="débito de ICMS" icon={Coins} variant="accent" />
           </>
         )}
       </div>
@@ -202,8 +210,17 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableHead>{ehEntrada ? 'Emitente' : 'Destinatário'}</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
-                    {ehEntrada && <TableHead className="text-right">Créd. ICMS</TableHead>}
-                    {ehEntrada && <TableHead className="text-right">Créd. PIS/COFINS</TableHead>}
+                    {ehEntrada ? (
+                      <>
+                        <TableHead className="text-right">Créd. ICMS</TableHead>
+                        <TableHead className="text-right">Créd. PIS/COFINS</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead className="text-right">BC ICMS</TableHead>
+                        <TableHead className="text-right">ICMS</TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -211,19 +228,32 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableRow key={d.id}>
                       <TableCell>{d.modelo}</TableCell>
                       <TableCell>
-                        <div className="font-medium text-foreground">{d.emitente}</div>
-                        <div className="text-xs text-muted-foreground">{cnpjMask(d.cnpjEmitente)}</div>
+                        {ehEntrada ? (
+                          <>
+                            <div className="font-medium text-foreground">{d.emitente}</div>
+                            <div className="text-xs text-muted-foreground">{cnpjMask(d.cnpjEmitente)}</div>
+                          </>
+                        ) : (
+                          <div className="font-mono text-sm font-medium text-foreground">
+                            {cnpjMask(d.cnpjDestinatario) || '—'}
+                          </div>
+                        )}
                         <div className="mt-0.5 font-mono text-[10px] text-muted-foreground" title={d.chaveAcesso}>
                           {(d.chaveAcesso ?? '').slice(0, 12)}…
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{dataBR(d.dataEmissao)}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">{brl(d.valor)}</TableCell>
-                      {ehEntrada && (
-                        <TableCell className="text-right tabular-nums">{brl(d.creditoIcms)}</TableCell>
-                      )}
-                      {ehEntrada && (
-                        <TableCell className="text-right tabular-nums">{brl(d.creditoPisCofins)}</TableCell>
+                      {ehEntrada ? (
+                        <>
+                          <TableCell className="text-right tabular-nums">{brl(d.creditoIcms)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{brl(d.creditoPisCofins)}</TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="text-right tabular-nums">{brl(d.bcIcms ?? 0)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
+                        </>
                       )}
                     </TableRow>
                   ))}

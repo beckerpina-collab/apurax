@@ -249,6 +249,7 @@ export class NfeService {
       include: {
         empresa: { select: { razaoSocial: true, cnpj: true } },
         apuracoes: { select: { tributo: true, valorCredito: true, creditoPermitido: true } },
+        itens: { select: { vIcms: true, vBcIcms: true } },
       },
     });
 
@@ -261,6 +262,13 @@ export class NfeService {
         if (a.tributo === 'ICMS') creditoIcms += v;
         else if (a.tributo === 'PIS' || a.tributo === 'COFINS') creditoPisCofins += v;
       }
+      // ICMS próprio e base de cálculo (somados dos itens) — relevante p/ SAÍDA (débito).
+      let icms = 0;
+      let bcIcms = 0;
+      for (const it of d.itens) {
+        icms += Number(it.vIcms ?? 0);
+        bcIcms += Number(it.vBcIcms ?? 0);
+      }
       return {
         id: d.id,
         chaveAcesso: d.chaveAcesso,
@@ -268,10 +276,13 @@ export class NfeService {
         tipoOperacao: d.tipoOperacao, // 'ENTRADA' | 'SAIDA'
         emitente: d.emitenteNome,
         cnpjEmitente: d.emitenteCnpj,
+        cnpjDestinatario: d.destinatarioCnpj,
         dataEmissao: d.dataEmissao.toISOString(),
         valor: Number(d.valorTotal),
         creditoIcms,
         creditoPisCofins,
+        bcIcms,
+        icms,
       };
     });
   }
