@@ -35,6 +35,7 @@ export interface DocumentoEntrada {
   creditoPisCofins: number;
   origem: 'SEFAZ' | 'XML' | 'SPED';
   tipoOperacao?: 'ENTRADA' | 'SAIDA';
+  destinatario?: string;
   cnpjDestinatario?: string;
   bcIcms?: number;
   icms?: number;
@@ -89,8 +90,8 @@ export const DOCUMENTOS: DocumentoEntrada[] = [
   { id: 'd2', chaveAcesso: '35260222333444000155570010000000051000000098', modelo: 'CT-e', emitente: 'TransLog Fretes SA', cnpjEmitente: '44555666000177', dataEmissao: '2026-02-05', valor: 1800.0, creditoIcms: 216.0, creditoPisCofins: 0, origem: 'SEFAZ' },
   { id: 'd3', chaveAcesso: '35260288999000000122550010000000021000000044', modelo: 'NF-e', emitente: 'Insumos Brasil Ltda', cnpjEmitente: '55666777000188', dataEmissao: '2026-02-11', valor: 7400.0, creditoIcms: 888.0, creditoPisCofins: 684.5, origem: 'XML' },
   { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, origem: 'XML', tipoOperacao: 'ENTRADA' },
-  { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', emitente: 'Cliente Varejo A', cnpjEmitente: '12345678000190', cnpjDestinatario: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 2400.0, icms: 432.0, origem: 'XML', tipoOperacao: 'SAIDA' },
-  { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', emitente: 'Cliente Atacado B', cnpjEmitente: '98765432000121', cnpjDestinatario: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 9800.0, icms: 1764.0, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Varejo A', cnpjDestinatario: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 2400.0, icms: 432.0, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Atacado B', cnpjDestinatario: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 9800.0, icms: 1764.0, origem: 'XML', tipoOperacao: 'SAIDA' },
 ];
 
 export const DASHBOARD = {

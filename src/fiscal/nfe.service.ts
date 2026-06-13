@@ -52,6 +52,7 @@ export class NfeService {
         emitenteCnpj: nfe.emitenteCnpj,
         emitenteNome: nfe.emitenteNome,
         destinatarioCnpj: nfe.destinatarioCnpj,
+        destinatarioNome: nfe.destinatarioNome,
         valorTotal: nfe.valorTotal,
         status: 'PROCESSADO',
         itens: {
@@ -189,6 +190,7 @@ export class NfeService {
         emitenteCnpj: nfe.emitenteCnpj,
         emitenteNome: nfe.emitenteNome,
         destinatarioCnpj: nfe.destinatarioCnpj,
+        destinatarioNome: nfe.destinatarioNome,
         valorTotal: nfe.valorTotal,
         status: 'PROCESSADO',
         itens: {
@@ -276,6 +278,7 @@ export class NfeService {
         tipoOperacao: d.tipoOperacao, // 'ENTRADA' | 'SAIDA'
         emitente: d.emitenteNome,
         cnpjEmitente: d.emitenteCnpj,
+        destinatario: d.destinatarioNome ?? '',
         cnpjDestinatario: d.destinatarioCnpj,
         dataEmissao: d.dataEmissao.toISOString(),
         valor: Number(d.valorTotal),

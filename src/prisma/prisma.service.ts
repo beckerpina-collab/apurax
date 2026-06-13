@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
@@ -13,12 +13,32 @@ import { ClsService } from 'nestjs-cls';
  */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
+
   constructor(private readonly cls: ClsService) {
     super();
   }
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
+    await this.aplicarMigracoesLeves();
+  }
+
+  /**
+   * Migrações LEVES e IDEMPOTENTES aplicadas no boot. O projeto não versiona
+   * migrations nem aplica schema no deploy; isto sincroniza alterações ADITIVAS
+   * (ADD COLUMN IF NOT EXISTS) automaticamente, sem CLI do Prisma em produção e
+   * sem risco — NUNCA dropa nada. Mudanças destrutivas exigem migration real.
+   */
+  private async aplicarMigracoesLeves(): Promise<void> {
+    const ddl = ['ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "destinatarioNome" TEXT'];
+    for (const sql of ddl) {
+      try {
+        await this.$executeRawUnsafe(sql);
+      } catch (e) {
+        this.logger.error(`Migração leve falhou (${sql}): ${(e as Error).message}`);
+      }
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

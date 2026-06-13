@@ -47,6 +47,7 @@ export interface NfeParsed {
   emitenteCnpj: string;
   emitenteNome: string;
   destinatarioCnpj: string;
+  destinatarioNome: string;
   valorTotal: string;
   itens: NfeItemParsed[];
 }
@@ -106,6 +107,7 @@ export class NfeParserService {
       emitenteCnpj: this.str(emit['CNPJ']) ?? this.str(emit['CPF']) ?? '',
       emitenteNome: this.str(emit['xNome']) ?? '',
       destinatarioCnpj: this.str(dest['CNPJ']) ?? this.str(dest['CPF']) ?? '',
+      destinatarioNome: this.str(dest['xNome']) ?? '',
       valorTotal: this.str(total['vNF']) ?? '0',
       itens,
     };

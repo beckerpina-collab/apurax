@@ -159,6 +159,7 @@ model DocumentoFiscal {
   emitenteCnpj    String
   emitenteNome    String
   destinatarioCnpj String
+  destinatarioNome String? // nome/razão social do destinatário (dest/xNome) — saída
   tomadorCnpj     String? // CT-e (modelo 57): CNPJ do tomador do serviço (toma3/toma4)
   valorTotal      Decimal         @db.Decimal(18, 2)
   xmlPath         String? // caminho no storage do XML bruto (valor legal)

@@ -22,6 +22,7 @@ interface Documento {
   tipoOperacao: TipoOperacao;
   emitente: string;
   cnpjEmitente: string;
+  destinatario: string;
   cnpjDestinatario: string;
   dataEmissao: string;
   valor: number;
@@ -234,9 +235,10 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                             <div className="text-xs text-muted-foreground">{cnpjMask(d.cnpjEmitente)}</div>
                           </>
                         ) : (
-                          <div className="font-mono text-sm font-medium text-foreground">
-                            {cnpjMask(d.cnpjDestinatario) || '—'}
-                          </div>
+                          <>
+                            <div className="font-medium text-foreground">{d.destinatario || '— (reimporte p/ ver o nome)'}</div>
+                            <div className="text-xs text-muted-foreground">{cnpjMask(d.cnpjDestinatario) || '—'}</div>
+                          </>
                         )}
                         <div className="mt-0.5 font-mono text-[10px] text-muted-foreground" title={d.chaveAcesso}>
                           {(d.chaveAcesso ?? '').slice(0, 12)}…
