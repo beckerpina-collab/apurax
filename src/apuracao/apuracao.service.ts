@@ -38,6 +38,7 @@ export class ApuracaoService {
       creditoPermitido: a.creditoPermitido,
       valorCredito: Number(a.valorCredito),
       baseLegal: a.baseLegal,
+      alertas: a.alertas ?? [],
       status: a.status,
       origem: rotuloModelo(a.documento.modelo),
       dataEmissao: a.documento.dataEmissao.toISOString(),

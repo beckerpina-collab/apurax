@@ -18,6 +18,7 @@ export interface Apuracao {
   creditoPermitido: boolean;
   valorCredito: number;
   baseLegal: string;
+  alertas?: string[];
   status: 'SUGERIDO' | 'HOMOLOGADO' | 'GLOSADO';
   origem: 'NF-e' | 'CT-e' | 'SPED';
 }
@@ -75,8 +76,8 @@ export const APURACOES: Apuracao[] = [
   { id: 'a1', documento: 'NF-e 1', item: 'Matéria-prima aço', tributo: 'ICMS', creditoPermitido: true, valorCredito: 180.0, baseLegal: 'LC 87/96, art. 20', status: 'SUGERIDO', origem: 'NF-e' },
   { id: 'a2', documento: 'NF-e 1', item: 'Matéria-prima aço', tributo: 'PIS', creditoPermitido: true, valorCredito: 16.5, baseLegal: 'Lei 10.637/2002, art. 3º', status: 'SUGERIDO', origem: 'NF-e' },
   { id: 'a3', documento: 'NF-e 1', item: 'Matéria-prima aço', tributo: 'COFINS', creditoPermitido: true, valorCredito: 76.0, baseLegal: 'Lei 10.833/2003, art. 3º', status: 'HOMOLOGADO', origem: 'NF-e' },
-  { id: 'a4', documento: 'CT-e 1', item: 'Frete s/ compra', tributo: 'ICMS', creditoPermitido: true, valorCredito: 180.0, baseLegal: 'LC 87/96, art. 20 (frete)', status: 'SUGERIDO', origem: 'CT-e' },
-  { id: 'a5', documento: 'NF-e 1', item: 'Produto monofásico', tributo: 'PIS', creditoPermitido: false, valorCredito: 0, baseLegal: 'IN RFB 2.121/2022 (monofásico)', status: 'GLOSADO', origem: 'NF-e' },
+  { id: 'a4', documento: 'CT-e 1', item: 'Frete s/ compra', tributo: 'ICMS', creditoPermitido: true, valorCredito: 180.0, baseLegal: 'LC 87/96, art. 20 (frete)', alertas: ['A0: confirmar vínculo do transporte com operação tributada/creditável (entrada p/ revenda/industrialização).'], status: 'SUGERIDO', origem: 'CT-e' },
+  { id: 'a5', documento: 'NF-e 1', item: 'Produto monofásico', tributo: 'PIS', creditoPermitido: false, valorCredito: 0, baseLegal: 'IN RFB 2.121/2022 (monofásico)', alertas: ['CST/CSOSN não gera crédito de PIS (regime monofásico).'], status: 'GLOSADO', origem: 'NF-e' },
   { id: 'a6', documento: 'SPED fev/26', item: 'Insumo não aproveitado', tributo: 'COFINS', creditoPermitido: true, valorCredito: 152.0, baseLegal: 'Lacuna SPED (não escriturado)', status: 'SUGERIDO', origem: 'SPED' },
 ];
 

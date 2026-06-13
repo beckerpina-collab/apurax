@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calculator, RefreshCw, Receipt } from 'lucide-react';
+import { AlertTriangle, Calculator, RefreshCw, Receipt } from 'lucide-react';
 
 import PageHeader from '@/components/PageHeader';
 import EmptyState from '@/components/EmptyState';
@@ -46,6 +46,7 @@ interface Apuracao {
   creditoPermitido: boolean;
   valorCredito: number;
   baseLegal: string;
+  alertas?: string[];
   status: 'SUGERIDO' | 'HOMOLOGADO' | 'GLOSADO';
   origem: string;
 }
@@ -217,6 +218,7 @@ export default function Apuracoes() {
                         <TableHead>Origem</TableHead>
                         <TableHead className="text-right">Crédito</TableHead>
                         <TableHead>Base legal</TableHead>
+                        <TableHead>Alertas</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -233,6 +235,20 @@ export default function Apuracoes() {
                             title={c.baseLegal}
                           >
                             {c.baseLegal}
+                          </TableCell>
+                          <TableCell className="max-w-[260px]">
+                            {c.alertas && c.alertas.length > 0 ? (
+                              <ul className="space-y-1">
+                                {c.alertas.map((a, i) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+                                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                    <span>{a}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <StatusPill status={c.status} />
