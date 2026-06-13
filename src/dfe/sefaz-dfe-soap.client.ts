@@ -65,7 +65,16 @@ export class SefazDfeSoapClient implements SefazDfeClient {
 
     const agent = new Agent({ pfx: params.pfx, passphrase: params.senha, keepAlive: false });
     const xmlResposta = await this.post(url, envelope, cfg.soapAction, agent);
-    return this.parseRetorno(xmlResposta);
+    const ret = this.parseRetorno(xmlResposta);
+    // Resposta sem cStat = SOAP fault / erro de schema / mTLS — surfaça em vez de "0 docs".
+    if (!ret.cStat) {
+      this.logger.warn(`SEFAZ ${params.modelo} (tpAmb=${params.tpAmb}) resposta inesperada: ${xmlResposta.slice(0, 400)}`);
+      throw new Error('A SEFAZ devolveu uma resposta inesperada (sem cStat) — possível falha de certificado, schema ou conexão.');
+    }
+    this.logger.log(
+      `SEFAZ ${params.modelo} tpAmb=${params.tpAmb} cStat=${ret.cStat} "${ret.xMotivo}" docs=${ret.docs.length} ultNSU=${ret.ultNsu} maxNSU=${ret.maxNsu}`,
+    );
+    return ret;
   }
 
   private post(url: string, body: string, soapAction: string, agent: Agent): Promise<string> {
@@ -85,10 +94,18 @@ export class SefazDfeSoapClient implements SefazDfeClient {
         (res) => {
           let data = '';
           res.on('data', (c) => (data += c));
-          res.on('end', () => resolve(data));
+          res.on('end', () => {
+            const status = res.statusCode ?? 0;
+            if (status < 200 || status >= 300) {
+              reject(new Error(`SEFAZ HTTP ${status}: ${data.slice(0, 300)}`));
+            } else {
+              resolve(data);
+            }
+          });
         },
       );
-      req.on('error', reject);
+      req.on('error', (e) => reject(new Error(`Falha de conexão com a SEFAZ: ${e.message}`)));
+      req.setTimeout(20000, () => req.destroy(new Error('Tempo esgotado ao consultar a SEFAZ (20s).')));
       req.write(body);
       req.end();
     });

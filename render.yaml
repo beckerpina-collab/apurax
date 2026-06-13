@@ -31,7 +31,7 @@ services:
       - key: SERVE_STATIC
         value: "true"
       - key: APURAX_DFE_TPAMB
-        value: "2"
+        value: "1"   # 1=produção (captura notas reais). 2=homologação NÃO traz notas reais.
       - key: BLING_CLIENT_ID
         value: af3f0b0addf6523c8be167b6c47f20a474fc2d4b
       - key: BLING_REDIRECT_URI

@@ -79,7 +79,7 @@ export class DistribuicaoService {
           dados: { cStat: ret.cStat, ultNsu: ret.ultNsu, maxNsu: ret.maxNsu, docs: resumo, estado: prox.estado },
         });
 
-        ciclos.push({ cStat: ret.cStat, ultNsu: ret.ultNsu, maxNsu: ret.maxNsu, ...resumo, estado: prox.estado });
+        ciclos.push({ cStat: ret.cStat, xMotivo: ret.xMotivo, ultNsu: ret.ultNsu, maxNsu: ret.maxNsu, ...resumo, estado: prox.estado });
         if (prox.estado !== 'CONSULTAR_JA') break;
       }
     } finally {
@@ -92,6 +92,8 @@ export class DistribuicaoService {
     const ultimoNSU = String(ultimo.ultNsu ?? cursor.ultNsu);
     const maxNSU = String(ultimo.maxNsu ?? cursor.maxNsu);
     const cStat = String(ultimo.cStat ?? cursor.ultimoCStat ?? '—');
+    const xMotivo = String(ultimo.xMotivo ?? '');
+    const ambiente = tpAmb === 1 ? 'produção' : 'HOMOLOGAÇÃO (ambiente de teste — não traz notas reais)';
     return {
       estado: 'concluido' as const,
       modelo,
@@ -101,8 +103,8 @@ export class DistribuicaoService {
       cStat,
       mensagem:
         novos > 0
-          ? `Captura concluída: ${novos} documento(s) novo(s) capturado(s) (NSU ${ultimoNSU}/${maxNSU}).`
-          : `Captura concluída: nenhum documento novo no momento (NSU ${ultimoNSU}/${maxNSU}, cStat ${cStat}).`,
+          ? `Captura concluída: ${novos} documento(s) novo(s) (NSU ${ultimoNSU}/${maxNSU}).`
+          : `Nenhum documento novo. cStat ${cStat}${xMotivo ? ` — ${xMotivo}` : ''}. Ambiente: ${ambiente}.`,
     };
   }
 
