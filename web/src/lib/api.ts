@@ -170,19 +170,22 @@ export const api = {
     return http<typeof EMPRESAS>('/empresas');
   },
 
-  async documentos(ano?: number, mes?: number) {
+  async documentos(ano?: number, mes?: number, tipo?: 'ENTRADA' | 'SAIDA') {
     if (DEMO) {
       await delay();
-      if (!ano) return DOCUMENTOS;
       return DOCUMENTOS.filter((d) => {
         const dt = new Date(d.dataEmissao);
-        if (dt.getUTCFullYear() !== ano) return false;
-        return !mes || dt.getUTCMonth() + 1 === mes;
+        if (ano && dt.getUTCFullYear() !== ano) return false;
+        if (ano && mes && dt.getUTCMonth() + 1 !== mes) return false;
+        // mock pode não ter tipoOperacao → trata como ENTRADA
+        if (tipo && ((d as { tipoOperacao?: string }).tipoOperacao ?? 'ENTRADA') !== tipo) return false;
+        return true;
       });
     }
     const qs = new URLSearchParams();
     if (ano) qs.set('ano', String(ano));
     if (mes) qs.set('mes', String(mes));
+    if (tipo) qs.set('tipo', tipo);
     const sufixo = qs.toString() ? `?${qs.toString()}` : '';
     return http<typeof DOCUMENTOS>(`/fiscal/documentos${sufixo}`);
   },

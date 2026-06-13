@@ -233,16 +233,16 @@ export class NfeService {
   }
 
   /**
-   * Lista os documentos de ENTRADA (base dos créditos) já no formato da tela.
-   * Filtro opcional por competência (ano+mês). Normaliza o registro cru
-   * (emitenteNome/valorTotal/modelo "55"…) para o contrato do front e soma os
-   * créditos a partir das apurações (ICMS, PIS+COFINS).
+   * Lista os documentos fiscais já no formato da tela. Filtro opcional por
+   * competência (ano+mês) e por tipo (ENTRADA/SAIDA; sem tipo = ambos).
+   * Normaliza o registro cru (emitenteNome/valorTotal/modelo "55"…) para o
+   * contrato do front e soma os créditos das entradas (ICMS, PIS+COFINS).
    */
-  async listarDocumentos(filtro: { ano?: number; mes?: number } = {}) {
+  async listarDocumentos(filtro: { ano?: number; mes?: number; tipo?: 'ENTRADA' | 'SAIDA' } = {}) {
     const periodo = faixaCompetencia(filtro.ano, filtro.mes);
     const docs = await this.prisma.scoped.documentoFiscal.findMany({
       where: {
-        tipoOperacao: 'ENTRADA',
+        ...(filtro.tipo ? { tipoOperacao: filtro.tipo } : {}),
         ...(periodo ? { dataEmissao: { gte: periodo.inicio, lt: periodo.fim } } : {}),
       },
       orderBy: { dataEmissao: 'desc' },
@@ -265,6 +265,7 @@ export class NfeService {
         id: d.id,
         chaveAcesso: d.chaveAcesso,
         modelo: rotuloModelo(d.modelo),
+        tipoOperacao: d.tipoOperacao, // 'ENTRADA' | 'SAIDA'
         emitente: d.emitenteNome,
         cnpjEmitente: d.emitenteCnpj,
         dataEmissao: d.dataEmissao.toISOString(),

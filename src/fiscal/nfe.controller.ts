@@ -17,8 +17,9 @@ export class NfeController {
   }
 
   @Get('documentos')
-  listar(@Query('ano') ano?: string, @Query('mes') mes?: string) {
-    return this.nfe.listarDocumentos(parseCompetencia(ano, mes));
+  listar(@Query('ano') ano?: string, @Query('mes') mes?: string, @Query('tipo') tipo?: string) {
+    const t = tipo === 'ENTRADA' || tipo === 'SAIDA' ? tipo : undefined;
+    return this.nfe.listarDocumentos({ ...parseCompetencia(ano, mes), tipo: t });
   }
 
   @Get('documentos/:id')

@@ -33,6 +33,7 @@ export interface DocumentoEntrada {
   creditoIcms: number;
   creditoPisCofins: number;
   origem: 'SEFAZ' | 'XML' | 'SPED';
+  tipoOperacao?: 'ENTRADA' | 'SAIDA';
 }
 
 export interface ApuracaoImposto {
@@ -83,7 +84,9 @@ export const DOCUMENTOS: DocumentoEntrada[] = [
   { id: 'd1', chaveAcesso: '35260211111111000111550010000000011000000017', modelo: 'NF-e', emitente: 'Aço Forte Distribuidora', cnpjEmitente: '33444555000166', dataEmissao: '2026-02-03', valor: 12500.0, creditoIcms: 1500.0, creditoPisCofins: 1156.25, origem: 'SEFAZ' },
   { id: 'd2', chaveAcesso: '35260222333444000155570010000000051000000098', modelo: 'CT-e', emitente: 'TransLog Fretes SA', cnpjEmitente: '44555666000177', dataEmissao: '2026-02-05', valor: 1800.0, creditoIcms: 216.0, creditoPisCofins: 0, origem: 'SEFAZ' },
   { id: 'd3', chaveAcesso: '35260288999000000122550010000000021000000044', modelo: 'NF-e', emitente: 'Insumos Brasil Ltda', cnpjEmitente: '55666777000188', dataEmissao: '2026-02-11', valor: 7400.0, creditoIcms: 888.0, creditoPisCofins: 684.5, origem: 'XML' },
-  { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, origem: 'XML' },
+  { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, origem: 'XML', tipoOperacao: 'ENTRADA' },
+  { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', emitente: 'Cliente Varejo A', cnpjEmitente: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', emitente: 'Cliente Atacado B', cnpjEmitente: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, origem: 'XML', tipoOperacao: 'SAIDA' },
 ];
 
 export const DASHBOARD = {
