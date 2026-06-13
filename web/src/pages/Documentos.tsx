@@ -3,7 +3,6 @@ import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX } from 'lucide-
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +14,6 @@ const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 
 type Modelo = 'NF-e' | 'CT-e' | 'NFS-e';
 type TipoOperacao = 'ENTRADA' | 'SAIDA';
-type FiltroTipo = TipoOperacao | 'todas';
 
 interface Documento {
   id: string;
@@ -32,27 +30,28 @@ interface Documento {
 
 type Filtro = 'Todos' | Modelo;
 
-const FILTROS: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
+// Entrada aceita NF-e/CT-e/NFS-e; saída, na prática, NF-e.
+const FILTROS_ENTRADA: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
+const FILTROS_SAIDA: Filtro[] = ['Todos', 'NF-e'];
 
 const COMP_ATUAL = mesAtualSP(); // 'YYYY-MM' no fuso de São Paulo
 const ANO_ATUAL = Number(COMP_ATUAL.slice(0, 4));
 const ANOS = [ANO_ATUAL, ANO_ATUAL - 1, ANO_ATUAL - 2, ANO_ATUAL - 3];
 
-const TITULO_TIPO: Record<FiltroTipo, string> = {
-  ENTRADA: 'Notas de entrada (compras)',
-  SAIDA: 'Notas de saída (vendas)',
-  todas: 'Todas as notas',
-};
-
-export default function Documentos() {
+/** Lista de documentos fiscais de um tipo fixo (Entrada ou Saída) — usado por duas rotas. */
+export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
+  const ehEntrada = tipo === 'ENTRADA';
   const [docs, setDocs] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
-  // Entrada (compras) por padrão — é a base dos créditos. Saída = vendas (débito).
-  const [tipo, setTipo] = useState<FiltroTipo>('ENTRADA');
   // Filtro de período igual ao Painel: 'todos' = sem filtro. Default = ano e mês atuais.
   const [ano, setAno] = useState<string>(String(ANO_ATUAL));
   const [mes, setMes] = useState<string>(String(Number(COMP_ATUAL.slice(5, 7))));
+
+  // ao trocar de aba (entrada/saída), o filtro de modelo volta p/ "Todos"
+  useEffect(() => {
+    setFiltro('Todos');
+  }, [tipo]);
 
   useEffect(() => {
     let ativo = true;
@@ -60,7 +59,7 @@ export default function Documentos() {
     const anoNum = ano === 'todos' ? undefined : Number(ano);
     const mesNum = mes === 'todos' ? undefined : Number(mes);
     api
-      .documentos(anoNum, mesNum, tipo === 'todas' ? undefined : tipo)
+      .documentos(anoNum, mesNum, tipo)
       .then((d) => {
         if (ativo) setDocs(d as Documento[]);
       })
@@ -87,31 +86,25 @@ export default function Documentos() {
     );
   }, [docs]);
 
+  const filtros = ehEntrada ? FILTROS_ENTRADA : FILTROS_SAIDA;
   const filtrados = useMemo(
     () => (filtro === 'Todos' ? docs : docs.filter((d) => d.modelo === filtro)),
     [docs, filtro],
   );
 
-  const mostraCredito = tipo !== 'SAIDA'; // saídas não geram crédito de entrada
   const periodoLabel =
     ano === 'todos' ? 'todos os períodos' : mes === 'todos' ? ano : `${MESES[Number(mes) - 1]}/${ano}`;
 
   return (
     <div>
       <PageHeader
-        title="Documentos"
-        description="Notas fiscais de entrada (compras) e de saída (vendas), capturadas ou importadas."
+        title={ehEntrada ? 'Documentos de Entrada' : 'Documentos de Saída'}
+        description={
+          ehEntrada
+            ? 'NF-e, NFC-e e CT-e de entrada (compras) — base dos créditos.'
+            : 'NF-e de saída (vendas) — base do imposto a pagar.'
+        }
       >
-        <Select value={tipo} onValueChange={(v) => setTipo(v as FiltroTipo)}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ENTRADA">Entrada</SelectItem>
-            <SelectItem value="SAIDA">Saída</SelectItem>
-            <SelectItem value="todas">Entrada e saída</SelectItem>
-          </SelectContent>
-        </Select>
         <Select
           value={ano}
           onValueChange={(v) => {
@@ -119,7 +112,7 @@ export default function Documentos() {
             if (v === 'todos') setMes('todos');
           }}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Ano" />
           </SelectTrigger>
           <SelectContent>
@@ -132,7 +125,7 @@ export default function Documentos() {
           </SelectContent>
         </Select>
         <Select value={mes} onValueChange={setMes} disabled={ano === 'todos'}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Mês" />
           </SelectTrigger>
           <SelectContent>
@@ -146,30 +139,33 @@ export default function Documentos() {
         </Select>
       </PageHeader>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Documentos" value={docs.length} subtitle="no período/tipo selecionado" icon={FileText} />
+      <div
+        className={`mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 ${ehEntrada ? 'lg:grid-cols-4' : 'lg:grid-cols-2'}`}
+      >
+        <StatCard title="Documentos" value={docs.length} subtitle="no período selecionado" icon={FileText} />
         <StatCard title="Valor total" value={brl(totais.valor)} subtitle="soma das notas" icon={Receipt} variant="primary" />
-        <StatCard
-          title="Crédito ICMS"
-          value={mostraCredito ? brl(totais.icms) : '—'}
-          subtitle={mostraCredito ? 'potencial sobre entradas' : 'só em notas de entrada'}
-          icon={ShieldCheck}
-        />
-        <StatCard
-          title="Crédito PIS/COFINS"
-          value={mostraCredito ? brl(totais.pisCofins) : '—'}
-          subtitle={mostraCredito ? 'potencial sobre entradas' : 'só em notas de entrada'}
-          icon={Coins}
-          variant="accent"
-        />
+        {ehEntrada && (
+          <>
+            <StatCard title="Crédito ICMS" value={brl(totais.icms)} subtitle="potencial sobre entradas" icon={ShieldCheck} />
+            <StatCard
+              title="Crédito PIS/COFINS"
+              value={brl(totais.pisCofins)}
+              subtitle="potencial sobre entradas"
+              icon={Coins}
+              variant="accent"
+            />
+          </>
+        )}
       </div>
 
       <Card className="shadow-sm">
         <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-sm font-semibold">{TITULO_TIPO[tipo]}</CardTitle>
+          <CardTitle className="text-sm font-semibold">
+            {ehEntrada ? 'Notas de entrada' : 'Notas de saída'}
+          </CardTitle>
           <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
             <TabsList>
-              {FILTROS.map((f) => (
+              {filtros.map((f) => (
                 <TabsTrigger key={f} value={f}>
                   {f}
                 </TabsTrigger>
@@ -188,11 +184,13 @@ export default function Documentos() {
               icon={FileX}
               title="Nenhum documento"
               description={
-                tipo === 'SAIDA'
-                  ? `Nenhuma nota de saída em ${periodoLabel}. Importe pelo Bling ("Bling (saídas)") ou em "Importar XML", ou troque o período.`
-                  : ano !== 'todos'
+                ehEntrada
+                  ? ano !== 'todos'
                     ? `Nenhuma nota de entrada${filtro === 'Todos' ? '' : ` (${filtro})`} em ${periodoLabel}. Troque o período, ou capture na SEFAZ / importe um XML.`
                     : 'Capture na SEFAZ ou importe um XML para começar.'
+                  : ano !== 'todos'
+                    ? `Nenhuma nota de saída em ${periodoLabel}. Importe pelo Bling ("Bling (saídas)") ou em "Importar XML", ou troque o período.`
+                    : 'Importe suas vendas pelo Bling ("Bling (saídas)") ou por "Importar XML".'
               }
             />
           ) : (
@@ -200,23 +198,17 @@ export default function Documentos() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tipo</TableHead>
                     <TableHead>Modelo</TableHead>
-                    <TableHead>{tipo === 'SAIDA' ? 'Destinatário' : 'Emitente'}</TableHead>
+                    <TableHead>{ehEntrada ? 'Emitente' : 'Destinatário'}</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-right">Créd. ICMS</TableHead>
-                    <TableHead className="text-right">Créd. PIS/COFINS</TableHead>
+                    {ehEntrada && <TableHead className="text-right">Créd. ICMS</TableHead>}
+                    {ehEntrada && <TableHead className="text-right">Créd. PIS/COFINS</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtrados.map((d) => (
                     <TableRow key={d.id}>
-                      <TableCell>
-                        <Badge variant={d.tipoOperacao === 'SAIDA' ? 'secondary' : 'default'}>
-                          {d.tipoOperacao === 'SAIDA' ? 'Saída' : 'Entrada'}
-                        </Badge>
-                      </TableCell>
                       <TableCell>{d.modelo}</TableCell>
                       <TableCell>
                         <div className="font-medium text-foreground">{d.emitente}</div>
@@ -227,20 +219,12 @@ export default function Documentos() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{dataBR(d.dataEmissao)}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">{brl(d.valor)}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {d.tipoOperacao === 'SAIDA' ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          brl(d.creditoIcms)
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {d.tipoOperacao === 'SAIDA' ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          brl(d.creditoPisCofins)
-                        )}
-                      </TableCell>
+                      {ehEntrada && (
+                        <TableCell className="text-right tabular-nums">{brl(d.creditoIcms)}</TableCell>
+                      )}
+                      {ehEntrada && (
+                        <TableCell className="text-right tabular-nums">{brl(d.creditoPisCofins)}</TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

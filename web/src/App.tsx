@@ -39,7 +39,8 @@ export default function App() {
           >
             <Route path="/" element={<Dashboard />} />
             <Route path="/captura" element={<Captura />} />
-            <Route path="/documentos" element={<Documentos />} />
+            <Route path="/documentos" element={<Documentos tipo="ENTRADA" />} />
+            <Route path="/documentos-saida" element={<Documentos tipo="SAIDA" />} />
             <Route path="/importar" element={<ImportarXml />} />
             <Route path="/apuracoes" element={<Apuracoes />} />
             <Route path="/bling" element={<Bling />} />
