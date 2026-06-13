@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
+import ResumoCst from '@/components/ResumoCst';
 import StatusPill from '@/components/StatusPill';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -152,6 +153,10 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <ResumoCst data={d.resumoCst} titulo="Resumo CST — PIS e COFINS (saídas)" />
       </div>
         </>
       )}

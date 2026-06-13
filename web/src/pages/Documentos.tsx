@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
+import ResumoCst, { type ResumoCstData } from '@/components/ResumoCst';
 import StatCard from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,6 +31,8 @@ interface Documento {
   creditoPisCofins: number;
   bcIcms: number; // base de cálculo do ICMS (soma dos itens)
   icms: number; // ICMS próprio (soma dos itens) — débito na saída
+  pis: number; // PIS (soma dos itens)
+  cofins: number; // COFINS (soma dos itens)
 }
 
 type Filtro = 'Todos' | Modelo;
@@ -46,6 +49,7 @@ const ANOS = [ANO_ATUAL, ANO_ATUAL - 1, ANO_ATUAL - 2, ANO_ATUAL - 3];
 export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   const ehEntrada = tipo === 'ENTRADA';
   const [docs, setDocs] = useState<Documento[]>([]);
+  const [resumoCst, setResumoCst] = useState<ResumoCstData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
   // Filtro de período igual ao Painel: 'todos' = sem filtro. Default = ano e mês atuais.
@@ -64,11 +68,17 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
     const mesNum = mes === 'todos' ? undefined : Number(mes);
     api
       .documentos(anoNum, mesNum, tipo)
-      .then((d) => {
-        if (ativo) setDocs(d as Documento[]);
+      .then((r) => {
+        if (!ativo) return;
+        const resp = r as { documentos: Documento[]; resumoCst: ResumoCstData };
+        setDocs(resp.documentos ?? []);
+        setResumoCst(resp.resumoCst ?? null);
       })
       .catch(() => {
-        if (ativo) setDocs([]);
+        if (ativo) {
+          setDocs([]);
+          setResumoCst(null);
+        }
       })
       .finally(() => {
         if (ativo) setLoading(false);
@@ -211,17 +221,10 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableHead>{ehEntrada ? 'Emitente' : 'Destinatário'}</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
-                    {ehEntrada ? (
-                      <>
-                        <TableHead className="text-right">Créd. ICMS</TableHead>
-                        <TableHead className="text-right">Créd. PIS/COFINS</TableHead>
-                      </>
-                    ) : (
-                      <>
-                        <TableHead className="text-right">BC ICMS</TableHead>
-                        <TableHead className="text-right">ICMS</TableHead>
-                      </>
-                    )}
+                    <TableHead className="text-right">BC ICMS</TableHead>
+                    <TableHead className="text-right">ICMS</TableHead>
+                    <TableHead className="text-right">PIS</TableHead>
+                    <TableHead className="text-right">COFINS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -246,17 +249,10 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{dataBR(d.dataEmissao)}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">{brl(d.valor)}</TableCell>
-                      {ehEntrada ? (
-                        <>
-                          <TableCell className="text-right tabular-nums">{brl(d.creditoIcms)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{brl(d.creditoPisCofins)}</TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell className="text-right tabular-nums">{brl(d.bcIcms ?? 0)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
-                        </>
-                      )}
+                      <TableCell className="text-right tabular-nums">{brl(d.bcIcms ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{brl(d.pis ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{brl(d.cofins ?? 0)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -265,6 +261,13 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <ResumoCst
+          data={resumoCst}
+          titulo={`Resumo CST — PIS e COFINS (${ehEntrada ? 'entradas' : 'saídas'})`}
+        />
+      </div>
     </div>
   );
 }

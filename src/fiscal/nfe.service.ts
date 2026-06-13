@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { faixaCompetencia } from '../common/competencia';
+import { resumirCstPisCofins } from '../common/cst-pis-cofins';
 import { rotuloModelo } from '../common/modelo';
 import { MotorCreditoService } from '../motor-credito/motor-credito.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -251,11 +252,22 @@ export class NfeService {
       include: {
         empresa: { select: { razaoSocial: true, cnpj: true } },
         apuracoes: { select: { tributo: true, valorCredito: true, creditoPermitido: true } },
-        itens: { select: { vIcms: true, vBcIcms: true } },
+        itens: {
+          select: {
+            vIcms: true,
+            vBcIcms: true,
+            cstPis: true,
+            vBcPis: true,
+            vPis: true,
+            cstCofins: true,
+            vBcCofins: true,
+            vCofins: true,
+          },
+        },
       },
     });
 
-    return docs.map((d) => {
+    const documentos = docs.map((d) => {
       let creditoIcms = 0;
       let creditoPisCofins = 0;
       for (const a of d.apuracoes) {
@@ -264,12 +276,16 @@ export class NfeService {
         if (a.tributo === 'ICMS') creditoIcms += v;
         else if (a.tributo === 'PIS' || a.tributo === 'COFINS') creditoPisCofins += v;
       }
-      // ICMS próprio e base de cálculo (somados dos itens) — relevante p/ SAÍDA (débito).
+      // Valores de imposto (somados dos itens) — débito na saída / destacado na entrada.
       let icms = 0;
       let bcIcms = 0;
+      let pis = 0;
+      let cofins = 0;
       for (const it of d.itens) {
         icms += Number(it.vIcms ?? 0);
         bcIcms += Number(it.vBcIcms ?? 0);
+        pis += Number(it.vPis ?? 0);
+        cofins += Number(it.vCofins ?? 0);
       }
       return {
         id: d.id,
@@ -286,8 +302,15 @@ export class NfeService {
         creditoPisCofins,
         bcIcms,
         icms,
+        pis,
+        cofins,
       };
     });
+
+    // Resumo das CST de PIS/COFINS sobre TODOS os itens do conjunto filtrado.
+    const resumoCst = resumirCstPisCofins(docs.flatMap((d) => d.itens));
+
+    return { documentos, resumoCst };
   }
 
   async detalhe(id: string) {

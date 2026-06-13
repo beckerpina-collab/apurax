@@ -4,6 +4,7 @@ import {
   DASHBOARD,
   DOCUMENTOS,
   EMPRESAS,
+  RESUMO_CST_DEMO,
   demoApurarImposto,
   demoBlingPuxar,
   demoBlingStatus,
@@ -173,7 +174,7 @@ export const api = {
   async documentos(ano?: number, mes?: number, tipo?: 'ENTRADA' | 'SAIDA') {
     if (DEMO) {
       await delay();
-      return DOCUMENTOS.filter((d) => {
+      const documentos = DOCUMENTOS.filter((d) => {
         const dt = new Date(d.dataEmissao);
         if (ano && dt.getUTCFullYear() !== ano) return false;
         if (ano && mes && dt.getUTCMonth() + 1 !== mes) return false;
@@ -181,13 +182,14 @@ export const api = {
         if (tipo && ((d as { tipoOperacao?: string }).tipoOperacao ?? 'ENTRADA') !== tipo) return false;
         return true;
       });
+      return { documentos, resumoCst: RESUMO_CST_DEMO };
     }
     const qs = new URLSearchParams();
     if (ano) qs.set('ano', String(ano));
     if (mes) qs.set('mes', String(mes));
     if (tipo) qs.set('tipo', tipo);
     const sufixo = qs.toString() ? `?${qs.toString()}` : '';
-    return http<typeof DOCUMENTOS>(`/fiscal/documentos${sufixo}`);
+    return http<{ documentos: typeof DOCUMENTOS; resumoCst: typeof RESUMO_CST_DEMO }>(`/fiscal/documentos${sufixo}`);
   },
 
   async apuracoes(ano?: number, mes?: number) {

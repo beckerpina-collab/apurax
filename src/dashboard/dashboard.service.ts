@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { DESC_CST_PIS_COFINS, type LinhaCst } from '../common/cst-pis-cofins';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -27,7 +28,7 @@ export class DashboardService {
     const whereLacuna = periodo ? { importacao: { dtIni: { gte: periodo.inicio, lt: periodo.fim } } } : {};
     const whereImposto = filtro.ano ? { ano: filtro.ano } : {};
 
-    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms] =
+    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms, grpPis, grpCofins] =
       await Promise.all([
         db.apuracaoCredito.aggregate({
           _sum: { valorCredito: true },
@@ -57,7 +58,36 @@ export class DashboardService {
           _sum: { vIcms: true },
           where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
         }),
+        // PIS/COFINS de SAÍDA por CST (débito) — resumo no painel.
+        db.itemDocumento.groupBy({
+          by: ['cstPis'],
+          _count: true,
+          _sum: { vPis: true, vBcPis: true },
+          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+        }),
+        db.itemDocumento.groupBy({
+          by: ['cstCofins'],
+          _count: true,
+          _sum: { vCofins: true, vBcCofins: true },
+          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+        }),
       ]);
+
+    const linhaCst = (cst: string | null, itens: number, base: unknown, valor: unknown): LinhaCst => ({
+      cst: cst ?? '—',
+      descricao: (cst && DESC_CST_PIS_COFINS[cst]) || (cst ? `CST ${cst}` : 'Sem CST'),
+      itens,
+      base: Number((base as { toString(): string } | null) ?? 0),
+      valor: Number((valor as { toString(): string } | null) ?? 0),
+    });
+    const cstPis = grpPis
+      .map((g) => linhaCst(g.cstPis, g._count, g._sum.vBcPis, g._sum.vPis))
+      .sort((a, b) => b.valor - a.valor || b.base - a.base);
+    const cstCofins = grpCofins
+      .map((g) => linhaCst(g.cstCofins, g._count, g._sum.vBcCofins, g._sum.vCofins))
+      .sort((a, b) => b.valor - a.valor || b.base - a.base);
+    const pisDebito = cstPis.reduce((s, l) => s + l.valor, 0);
+    const cofinsDebito = cstCofins.reduce((s, l) => s + l.valor, 0);
 
     const serie = (filtro.ano ? porCompetencia : porCompetencia.slice(-6)).map((c) => ({
       mes: `${MESES[c.mes - 1]}/${String(c.ano).slice(2)}`,
@@ -100,7 +130,10 @@ export class DashboardService {
         quantidade: saidaAgg._count ?? 0,
         faturamento: Number(saidaAgg._sum.valorTotal ?? 0),
         icmsDebito: Number(saidaIcms._sum.vIcms ?? 0),
+        pisDebito,
+        cofinsDebito,
       },
+      resumoCst: { pis: cstPis, cofins: cstCofins },
       serie,
       documentos,
       anosDisponiveis,
