@@ -159,11 +159,11 @@ export default function Captura() {
 
       <Alert className="mb-6">
         <ShieldCheck className="h-4 w-4" />
-        <AlertTitle>Captura segura via Distribuição DFe</AlertTitle>
+        <AlertTitle>Captura automática ativa (a cada hora)</AlertTitle>
         <AlertDescription>
-          A captura usa o certificado A1 cadastrado em Configuração e respeita o controle de NSU
-          (consulta sempre a partir do último NSU recebido). Isso evita o cStat 656 — bloqueio por
-          consumo indevido do serviço de Distribuição DFe da SEFAZ.
+          O sistema busca NF-e e CT-e de entrada na SEFAZ <b>sozinho, de hora em hora</b>, e manifesta a
+          <b> Ciência da Operação</b> nas NF-e (libera o XML completo). Use os botões abaixo para forçar uma
+          captura agora. Tudo respeita o controle de NSU e o cooldown (evita o bloqueio cStat 656).
         </AlertDescription>
       </Alert>
 

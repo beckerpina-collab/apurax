@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ClsModule } from 'nestjs-cls';
 import { join } from 'path';
@@ -41,6 +42,7 @@ const serveStatic =
   imports: [
     ...serveStatic,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(), // captura agendada da SEFAZ (cron)
     // CLS: cada requisição roda num contexto isolado; a JwtStrategy grava aqui o
     // tenantId, lido depois pelo PrismaService para a RLS.
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),

@@ -147,6 +147,7 @@ export class DistribuicaoService {
     // Normaliza para o contrato da tela Captura ({ documentosNovos, ultimoNSU, maxNSU, cStat, mensagem }).
     const novos = ciclos.reduce((s, c) => s + (Number(c.nfeCompletas) || 0) + (Number(c.cteCompletas) || 0), 0);
     const resumos = ciclos.reduce((s, c) => s + (Number(c.resumos) || 0), 0);
+    const chavesResumoNfe = ciclos.flatMap((c) => (c.chavesResumoNfe as string[] | undefined) ?? []);
     const ultimo: Record<string, unknown> = ciclos[ciclos.length - 1] ?? {};
     const ultimoNSU = String(ultimo.ultNsu ?? cursor.ultNsu);
     const maxNSU = String(ultimo.maxNsu ?? cursor.maxNsu);
@@ -171,6 +172,7 @@ export class DistribuicaoService {
       modelo,
       documentosNovos: novos,
       resumos,
+      chavesResumoNfe,
       ultimoNSU,
       maxNSU,
       cStat,
@@ -180,7 +182,16 @@ export class DistribuicaoService {
 
   /** Decodifica e roteia cada docZip para a ingestão existente (NF-e/CT-e). */
   private async processarLote(empresaId: string, docs: { nsu: string; schema: string; conteudoBase64: string }[]) {
-    const contagem = { total: docs.length, nfeCompletas: 0, cteCompletas: 0, resumos: 0, eventos: 0, ignorados: 0, erros: 0 };
+    const contagem = {
+      total: docs.length,
+      nfeCompletas: 0,
+      cteCompletas: 0,
+      resumos: 0,
+      eventos: 0,
+      ignorados: 0,
+      erros: 0,
+      chavesResumoNfe: [] as string[], // chaves de NF-e que vieram como RESUMO (p/ manifestar Ciência)
+    };
     for (const doc of docs) {
       const tipo = this.docZip.classificar(doc.schema);
       try {
@@ -192,6 +203,10 @@ export class DistribuicaoService {
           contagem.cteCompletas++;
         } else if (tipo === 'NFE_RESUMO' || tipo === 'CTE_RESUMO') {
           contagem.resumos++; // resumo: requer manifestação (210210) p/ liberar o XML completo
+          if (tipo === 'NFE_RESUMO') {
+            const ch = this.chaveDoResumo(this.docZip.decodificar(doc.conteudoBase64));
+            if (ch) contagem.chavesResumoNfe.push(ch);
+          }
         } else if (tipo === 'EVENTO') {
           contagem.eventos++;
         } else {
@@ -202,6 +217,12 @@ export class DistribuicaoService {
       }
     }
     return contagem;
+  }
+
+  /** Extrai a chave (44 dígitos) de um resNFe (resumo) p/ manifestar. */
+  private chaveDoResumo(xml: string): string | null {
+    const m = xml.match(/<chNFe>(\d{44})<\/chNFe>/);
+    return m ? m[1] : null;
   }
 
   private ignorarDuplicado(e: unknown): void {

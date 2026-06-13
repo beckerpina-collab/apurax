@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { CteModule } from '../cte/cte.module';
 import { FiscalModule } from '../fiscal/fiscal.module';
+import { CapturaAgendadaService } from './captura-agendada.service';
 import { CertificadoService } from './certificado.service';
 import { CryptoEnvelopeService, KMS_MASTER_KEY } from './crypto-envelope.service';
 import { DfeController } from './dfe.controller';
@@ -33,6 +34,7 @@ import { SefazEventoSoapClient } from './sefaz-evento-soap.client';
     DocZipService,
     CertificadoService,
     DistribuicaoService,
+    CapturaAgendadaService,
   ],
 })
 export class DfeModule {}
