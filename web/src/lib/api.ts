@@ -170,12 +170,20 @@ export const api = {
     return http<typeof EMPRESAS>('/empresas');
   },
 
-  async documentos() {
+  async documentos(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();
-      return DOCUMENTOS;
+      if (!ano || !mes) return DOCUMENTOS;
+      return DOCUMENTOS.filter((d) => {
+        const dt = new Date(d.dataEmissao);
+        return dt.getUTCFullYear() === ano && dt.getUTCMonth() + 1 === mes;
+      });
     }
-    return http<typeof DOCUMENTOS>('/fiscal/documentos');
+    const qs = new URLSearchParams();
+    if (ano) qs.set('ano', String(ano));
+    if (mes) qs.set('mes', String(mes));
+    const sufixo = qs.toString() ? `?${qs.toString()}` : '';
+    return http<typeof DOCUMENTOS>(`/fiscal/documentos${sufixo}`);
   },
 
   async apuracoes() {

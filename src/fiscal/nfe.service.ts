@@ -230,11 +230,56 @@ export class NfeService {
     return { documentoId: doc.id, chaveAcesso: doc.chaveAcesso, totalItens: doc.itens.length, tipoOperacao: 'SAIDA', alertas };
   }
 
-  listarDocumentos() {
-    return this.prisma.scoped.documentoFiscal.findMany({
+  /**
+   * Lista os documentos de ENTRADA (base dos créditos) já no formato da tela.
+   * Filtro opcional por competência (ano+mês). Normaliza o registro cru
+   * (emitenteNome/valorTotal/modelo "55"…) para o contrato do front e soma os
+   * créditos a partir das apurações (ICMS, PIS+COFINS).
+   */
+  async listarDocumentos(filtro: { ano?: number; mes?: number } = {}) {
+    const periodo = this.faixaCompetencia(filtro);
+    const docs = await this.prisma.scoped.documentoFiscal.findMany({
+      where: {
+        tipoOperacao: 'ENTRADA',
+        ...(periodo ? { dataEmissao: { gte: periodo.inicio, lt: periodo.fim } } : {}),
+      },
       orderBy: { dataEmissao: 'desc' },
-      include: { empresa: { select: { razaoSocial: true, cnpj: true } } },
+      include: {
+        empresa: { select: { razaoSocial: true, cnpj: true } },
+        apuracoes: { select: { tributo: true, valorCredito: true, creditoPermitido: true } },
+      },
     });
+
+    return docs.map((d) => {
+      let creditoIcms = 0;
+      let creditoPisCofins = 0;
+      for (const a of d.apuracoes) {
+        if (!a.creditoPermitido) continue;
+        const v = Number(a.valorCredito);
+        if (a.tributo === 'ICMS') creditoIcms += v;
+        else if (a.tributo === 'PIS' || a.tributo === 'COFINS') creditoPisCofins += v;
+      }
+      return {
+        id: d.id,
+        chaveAcesso: d.chaveAcesso,
+        modelo: rotuloModelo(d.modelo),
+        emitente: d.emitenteNome,
+        cnpjEmitente: d.emitenteCnpj,
+        dataEmissao: d.dataEmissao.toISOString(),
+        valor: Number(d.valorTotal),
+        creditoIcms,
+        creditoPisCofins,
+      };
+    });
+  }
+
+  /** Faixa [início, fim) sobre a dataEmissão p/ a competência (mês) informada.
+   *  Fronteiras em UTC, IGUAIS às do painel, p/ as duas telas baterem. */
+  private faixaCompetencia(f: { ano?: number; mes?: number }): { inicio: Date; fim: Date } | null {
+    if (!f.ano || !f.mes) return null;
+    const inicio = new Date(Date.UTC(f.ano, f.mes - 1, 1));
+    const fim = new Date(Date.UTC(f.mes === 12 ? f.ano + 1 : f.ano, f.mes === 12 ? 0 : f.mes, 1));
+    return { inicio, fim };
   }
 
   async detalhe(id: string) {
@@ -247,4 +292,11 @@ export class NfeService {
     }
     return doc;
   }
+}
+
+/** Código do modelo (55/65/57…) → rótulo curto da tela. */
+function rotuloModelo(modelo: string): 'NF-e' | 'CT-e' | 'NFS-e' {
+  if (modelo === '55' || modelo === '65') return 'NF-e';
+  if (modelo === '57') return 'CT-e';
+  return 'NFS-e';
 }

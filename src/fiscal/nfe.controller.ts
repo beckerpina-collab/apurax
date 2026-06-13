@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser, UsuarioAutenticado } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -16,8 +16,13 @@ export class NfeController {
   }
 
   @Get('documentos')
-  listar() {
-    return this.nfe.listarDocumentos();
+  listar(@Query('ano') ano?: string, @Query('mes') mes?: string) {
+    const a = Number(ano);
+    const m = Number(mes);
+    return this.nfe.listarDocumentos({
+      ano: Number.isInteger(a) && a > 0 ? a : undefined,
+      mes: Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined,
+    });
   }
 
   @Get('documentos/:id')

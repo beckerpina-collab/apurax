@@ -4,7 +4,10 @@ import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { api } from '@/lib/api';
@@ -22,34 +25,52 @@ interface DocumentoEntrada {
   valor: number;
   creditoIcms: number;
   creditoPisCofins: number;
-  origem: 'SEFAZ' | 'XML' | 'SPED';
 }
 
 type Filtro = 'Todos' | Modelo;
 
 const FILTROS: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
 
+/** Mês atual no formato YYYY-MM, SEMPRE no fuso de São Paulo (preferência do usuário). */
+function mesAtualSP(): string {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date());
+  const ano = partes.find((p) => p.type === 'year')?.value ?? '2026';
+  const mes = partes.find((p) => p.type === 'month')?.value ?? '01';
+  return `${ano}-${mes}`;
+}
+
 export default function Documentos() {
   const [docs, setDocs] = useState<DocumentoEntrada[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
+  // '' = todos os meses; default = mês atual (São Paulo)
+  const [mes, setMes] = useState<string>(mesAtualSP());
 
   useEffect(() => {
     let ativo = true;
     setLoading(true);
+    const [anoStr, mesStr] = mes.split('-');
+    const ano = anoStr ? Number(anoStr) : undefined;
+    const mesNum = mesStr ? Number(mesStr) : undefined;
     api
-      .documentos()
+      .documentos(ano, mesNum)
       .then((d) => {
         if (ativo) setDocs(d as DocumentoEntrada[]);
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (ativo) setDocs([]);
+      })
       .finally(() => {
         if (ativo) setLoading(false);
       });
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [mes]);
 
   const totais = useMemo(() => {
     return docs.reduce(
@@ -73,7 +94,27 @@ export default function Documentos() {
       <PageHeader
         title="Documentos de entrada"
         description="NF-e, CT-e e NFS-e capturados ou importados — base dos créditos."
-      />
+      >
+        <div className="flex items-end gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="mes" className="text-xs">
+              Mês
+            </Label>
+            <Input
+              id="mes"
+              type="month"
+              value={mes}
+              onChange={(e) => setMes(e.target.value)}
+              className="w-[160px]"
+            />
+          </div>
+          {mes && (
+            <Button variant="ghost" size="sm" onClick={() => setMes('')}>
+              Todos os meses
+            </Button>
+          )}
+        </div>
+      </PageHeader>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Documentos" value={docs.length} subtitle="capturados ou importados" icon={FileText} />
@@ -106,9 +147,11 @@ export default function Documentos() {
               icon={FileX}
               title="Nenhum documento"
               description={
-                filtro === 'Todos'
-                  ? 'Sincronize a SEFAZ ou importe um XML para começar a capturar créditos.'
-                  : `Nenhum documento do modelo ${filtro} encontrado.`
+                mes
+                  ? `Nenhum documento de entrada${filtro === 'Todos' ? '' : ` (${filtro})`} em ${mes}. Escolha outro mês ou clique em "Todos os meses".`
+                  : filtro === 'Todos'
+                    ? 'Sincronize a SEFAZ ou importe um XML para começar a capturar créditos.'
+                    : `Nenhum documento do modelo ${filtro} encontrado.`
               }
             />
           ) : (
@@ -122,7 +165,6 @@ export default function Documentos() {
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="text-right">Créd. ICMS</TableHead>
                     <TableHead className="text-right">Créd. PIS/COFINS</TableHead>
-                    <TableHead>Origem</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -142,9 +184,6 @@ export default function Documentos() {
                       <TableCell className="text-right font-medium tabular-nums">{brl(d.valor)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.creditoIcms)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.creditoPisCofins)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{d.origem}</Badge>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
