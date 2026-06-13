@@ -30,6 +30,10 @@ export interface VarreduraStatus {
   enfileiradas: number; // quantas eram novas na fila (≤ encontradas)
   paginas: number;
   truncada?: boolean; // true se bateu o backstop de MAX_PAGINAS (período pode ter mais)
+  // Resultado do PROCESSAMENTO da fila (preenchido pelo consumidor, em tempo real):
+  importadas: number; // gravadas como saída
+  semXml: number; // a nota não trouxe XML utilizável
+  errosImport: number; // falha ao importar (re-tentável)
   atualizadoEm: string; // ISO
   erro?: string;
 }
@@ -157,6 +161,9 @@ export class BlingService {
       encontradas: 0,
       enfileiradas: 0,
       paginas: 0,
+      importadas: 0,
+      semXml: 0,
+      errosImport: 0,
       atualizadoEm: new Date().toISOString(),
     });
 
@@ -280,16 +287,23 @@ export class BlingService {
         if (e instanceof BlingApiError && (e.status === 404 || e.status === 403)) continue; // não é desta conta
         throw e; // 429/5xx/rede → re-tenta via fila
       }
-      const xml = normalizarXml(nf.xml);
+      const xml = await this.obterXml(nf, access);
       if (xml) {
         await this.cls.run(async () => {
           this.cls.set('tenantId', cx.tenantId);
-          await this.nfe
-            .importarSaida(cx.empresaId, xml)
-            .catch((e) => this.logger.warn(`importarSaida NF ${invoiceId}: ${(e as Error).message}`));
+          try {
+            await this.nfe.importarSaida(cx.empresaId, xml);
+            this.bumpVarredura(cx.tenantId, cx.empresaId, 'importadas');
+          } catch (e) {
+            this.bumpVarredura(cx.tenantId, cx.empresaId, 'errosImport');
+            this.logger.warn(`importarSaida NF ${invoiceId}: ${(e as Error).message}`);
+          }
         });
       } else {
-        this.logger.warn(`NF ${invoiceId} sem XML utilizável na resposta do Bling.`);
+        this.bumpVarredura(cx.tenantId, cx.empresaId, 'semXml');
+        this.logger.warn(
+          `NF ${invoiceId} sem XML utilizável (xml="${String(nf.xml ?? '').slice(0, 80)}"; campos=[${Object.keys(nf).join(',')}]).`,
+        );
       }
       // marcarSync é só informativo (não decide dedupe) — falha aqui NÃO deve
       // re-disparar a fila (re-importaria a nota). Logamos para ter visibilidade.
@@ -299,6 +313,50 @@ export class BlingService {
       return; // dono encontrado
     }
     this.logger.warn(`NF ${invoiceId}: nenhuma conexão dona (404/403 em todas).`);
+  }
+
+  /**
+   * Obtém o XML da NF: o Bling pode devolver o conteúdo cru, em base64, OU um
+   * LINK (URL) — neste caso BAIXA o XML. Só envia o token se o link for do
+   * próprio Bling (não vaza credencial p/ storage/CDN de terceiros).
+   */
+  private async obterXml(nf: BlingInvoice, access: string): Promise<string | null> {
+    const candidatos = [nf.xml, (nf as { linkXml?: string }).linkXml].filter(Boolean) as string[];
+    for (const bruto of candidatos) {
+      if (bruto.includes('<')) return bruto; // conteúdo cru
+      if (/^https?:\/\//i.test(bruto)) {
+        try {
+          const url = new URL(bruto);
+          const doBling = /(^|\.)bling\.com\.br$/i.test(url.hostname);
+          await blingLimiter.aguardar();
+          const res = await fetch(bruto, {
+            headers: {
+              Accept: 'application/xml, text/xml, */*',
+              ...(doBling ? { Authorization: `Bearer ${access}` } : {}),
+            },
+          });
+          if (!res.ok) {
+            this.logger.warn(`Bling download XML: HTTP ${res.status} em ${url.hostname}`);
+            continue;
+          }
+          const texto = await res.text();
+          if (texto.includes('<')) return texto;
+        } catch (e) {
+          this.logger.warn(`Bling download XML falhou: ${(e as Error).message}`);
+        }
+        continue;
+      }
+      const inline = normalizarXml(bruto); // tenta base64
+      if (inline) return inline;
+    }
+    return null;
+  }
+
+  /** Incrementa um contador da varredura da empresa (se houver uma em memória). */
+  private bumpVarredura(tenantId: string, empresaId: string, campo: 'importadas' | 'semXml' | 'errosImport'): void {
+    const chave = this.chaveVarr(tenantId, empresaId);
+    const v = this.varreduras.get(chave);
+    if (v) this.varreduras.set(chave, { ...v, [campo]: (v[campo] ?? 0) + 1, atualizadoEm: new Date().toISOString() });
   }
 
   // ----- internos ------------------------------------------------------------

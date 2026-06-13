@@ -21,6 +21,9 @@ interface Varredura {
   enfileiradas: number;
   paginas: number;
   truncada?: boolean;
+  importadas?: number;
+  semXml?: number;
+  errosImport?: number;
   atualizadoEm: string;
   erro?: string;
 }
@@ -264,6 +267,19 @@ export default function Bling() {
                           ? ' — concluída.'
                           : ` — erro: ${status.varredura.erro ?? 'falha na varredura'}`}
                     </p>
+                    <p>
+                      Importadas: <b className="text-foreground">{status.varredura.importadas ?? 0}</b>
+                      {(status.varredura.semXml ?? 0) > 0 && <span> · sem XML: <b>{status.varredura.semXml}</b></span>}
+                      {(status.varredura.errosImport ?? 0) > 0 && (
+                        <span className="text-destructive"> · erros: <b>{status.varredura.errosImport}</b></span>
+                      )}
+                    </p>
+                    {(status.varredura.semXml ?? 0) > 0 && (status.varredura.importadas ?? 0) === 0 && (
+                      <p className="font-medium text-destructive">
+                        ⚠ As notas estão vindo sem XML do Bling — verifique se as NF-e estão autorizadas e se o app tem
+                        permissão de leitura de NF-e/XML.
+                      </p>
+                    )}
                     {status.varredura.truncada && (
                       <p className="font-medium text-destructive">
                         ⚠ Período muito grande: a varredura parou no limite de segurança. Reimporte em fatias menores
