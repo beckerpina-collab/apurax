@@ -8,12 +8,46 @@ import { apurarPisCofins, ModalidadePisCofins, somarDebitoPisCofins, TributoPC }
 import { apurarIss, NotaServicoIss } from './apuracao-iss';
 import { Anexo, anexoPorFatorR, calcularDas } from './simples-das';
 
+/** Linha de resultado de apuração — contrato ÚNICO consumido pela tela Apurações.
+ *  PIS/COFINS devolve 2 linhas; os demais, 1. Valores em number (não Decimal/string). */
+export interface ResultadoImposto {
+  imposto: string;
+  competencia: string;
+  debito: number;
+  credito: number;
+  saldoCredorAnterior: number;
+  aRecolher: number;
+  saldoCredorTransportar: number;
+}
+
 @Injectable()
 export class ApuracaoFiscalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
   ) {}
+
+  private linha(
+    imposto: string,
+    competencia: string,
+    v: {
+      debito: Prisma.Decimal;
+      credito: Prisma.Decimal;
+      saldoCredorAnterior: Prisma.Decimal;
+      aRecolher: Prisma.Decimal;
+      saldoCredorTransportar: Prisma.Decimal;
+    },
+  ): ResultadoImposto {
+    return {
+      imposto,
+      competencia,
+      debito: v.debito.toNumber(),
+      credito: v.credito.toNumber(),
+      saldoCredorAnterior: v.saldoCredorAnterior.toNumber(),
+      aRecolher: v.aRecolher.toNumber(),
+      saldoCredorTransportar: v.saldoCredorTransportar.toNumber(),
+    };
+  }
 
   /**
    * Apuração de ICMS de uma competência (regime normal): débito das saídas −
@@ -90,17 +124,15 @@ export class ApuracaoFiscalService {
       dados: { ano, mes, debito: debito.toString(), credito: credito.toString(), aRecolher: r.aRecolher.toString() },
     });
 
-    return {
-      empresa: { razaoSocial: empresa.razaoSocial, regime: empresa.regimeTributario },
-      competencia: `${ano}-${String(mes).padStart(2, '0')}`,
-      imposto: 'ICMS',
-      debito: debito.toFixed(2),
-      credito: credito.toFixed(2),
-      saldoCredorAnterior: saldoCredorAnterior.toFixed(2),
-      saldoApurado: r.saldoApurado.toFixed(2),
-      aRecolher: r.aRecolher.toFixed(2),
-      saldoCredorTransportar: r.saldoCredorTransportar.toFixed(2),
-    };
+    return [
+      this.linha('ICMS', `${ano}-${String(mes).padStart(2, '0')}`, {
+        debito,
+        credito,
+        saldoCredorAnterior,
+        aRecolher: r.aRecolher,
+        saldoCredorTransportar: r.saldoCredorTransportar,
+      }),
+    ];
   }
 
   /** Apuração de IPI (confronto débito×crédito, E520). Simples → no DAS. */
@@ -126,15 +158,15 @@ export class ApuracaoFiscalService {
     const r = apurarIpi({ debito, credito, saldoCredorAnterior });
     const ap = await this.upsertApuracao(empresaId, 'IPI', ano, mes, { debito, credito, saldoCredorAnterior, ...r });
     await this.audit('APURACAO_IPI', ap.id, { ano, mes, aRecolher: r.aRecolher.toString() });
-    return {
-      empresa: { razaoSocial: empresa.razaoSocial, regime: empresa.regimeTributario },
-      competencia: `${ano}-${String(mes).padStart(2, '0')}`,
-      imposto: 'IPI',
-      debito: debito.toFixed(2),
-      credito: credito.toFixed(2),
-      aRecolher: r.aRecolher.toFixed(2),
-      saldoCredorTransportar: r.saldoCredorTransportar.toFixed(2),
-    };
+    return [
+      this.linha('IPI', `${ano}-${String(mes).padStart(2, '0')}`, {
+        debito,
+        credito,
+        saldoCredorAnterior,
+        aRecolher: r.aRecolher,
+        saldoCredorTransportar: r.saldoCredorTransportar,
+      }),
+    ];
   }
 
   /** Apuração de PIS e COFINS (débito das saídas; crédito só no não-cumulativo). */
@@ -154,7 +186,8 @@ export class ApuracaoFiscalService {
     });
     const itensSaida = saidas.flatMap((d) => d.itens);
 
-    const resultado: Record<string, unknown> = {};
+    const competencia = `${ano}-${String(mes).padStart(2, '0')}`;
+    const linhas: ResultadoImposto[] = [];
     for (const tributo of ['PIS', 'COFINS'] as TributoPC[]) {
       const debito = somarDebitoPisCofins(itensSaida, tributo);
       const credito =
@@ -171,19 +204,17 @@ export class ApuracaoFiscalService {
         saldoCredorTransportar: r.saldoCredorTransportar,
       });
       await this.audit(`APURACAO_${tributo}`, ap.id, { ano, mes, modalidade, aRecolher: r.aRecolher.toString() });
-      resultado[tributo] = {
-        modalidade,
-        debito: r.debito.toFixed(2),
-        credito: r.credito.toFixed(2),
-        aRecolher: r.aRecolher.toFixed(2),
-        saldoCredorTransportar: r.saldoCredorTransportar.toFixed(2),
-      };
+      linhas.push(
+        this.linha(tributo, competencia, {
+          debito: r.debito,
+          credito: r.credito,
+          saldoCredorAnterior,
+          aRecolher: r.aRecolher,
+          saldoCredorTransportar: r.saldoCredorTransportar,
+        }),
+      );
     }
-    return {
-      empresa: { razaoSocial: empresa.razaoSocial, regime: empresa.regimeTributario },
-      competencia: `${ano}-${String(mes).padStart(2, '0')}`,
-      ...resultado,
-    };
+    return linhas;
   }
 
   /** ISS (cumulativo) a partir de NFS-e fornecidas (ingestão de NFS-e é sub-etapa). */
@@ -229,14 +260,15 @@ export class ApuracaoFiscalService {
       saldoCredorTransportar: zero,
     });
     await this.audit('APURACAO_ISS', ap.id, { ano, mes, aRecolher: r.aRecolher.toString(), notas: r.totalNotas });
-    return {
-      empresa: { razaoSocial: empresa.razaoSocial, regime: empresa.regimeTributario },
-      competencia: `${ano}-${String(mes).padStart(2, '0')}`,
-      imposto: 'ISS',
-      aRecolher: r.aRecolher.toFixed(2),
-      retidoFonte: r.retidoFonte.toFixed(2),
-      totalNotas: r.totalNotas,
-    };
+    return [
+      this.linha('ISS', `${ano}-${String(mes).padStart(2, '0')}`, {
+        debito: r.debito,
+        credito: zero,
+        saldoCredorAnterior: zero,
+        aRecolher: r.aRecolher,
+        saldoCredorTransportar: zero,
+      }),
+    ];
   }
 
   private periodo(ano: number, mes: number) {

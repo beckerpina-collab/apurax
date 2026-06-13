@@ -110,7 +110,8 @@ export default function Apuracoes() {
   const [ano, setAno] = useState(Number(competenciaAtual.slice(0, 4)));
   const [mes, setMes] = useState(Number(competenciaAtual.slice(5, 7)));
   const [apurando, setApurando] = useState(false);
-  const [resultado, setResultado] = useState<ResultadoImposto | null>(null);
+  // A API devolve uma LISTA (PIS/COFINS = 2 linhas; demais = 1).
+  const [resultados, setResultados] = useState<ResultadoImposto[]>([]);
 
   async function apurar() {
     if (!empresaId) {
@@ -119,9 +120,11 @@ export default function Apuracoes() {
     }
     setApurando(true);
     try {
-      const r = (await api.apurarImposto(tipo, empresaId, ano, mes)) as ResultadoImposto;
-      setResultado(r);
-      toast.success(`Apuração de ${r.imposto} concluída para ${r.competencia}.`);
+      const r = (await api.apurarImposto(tipo, empresaId, ano, mes)) as ResultadoImposto[];
+      const lista = Array.isArray(r) ? r : [r]; // tolera resposta antiga (objeto único)
+      setResultados(lista);
+      const rotulo = IMPOSTOS.find((i) => i.value === tipo)?.label ?? tipo;
+      toast.success(`Apuração de ${rotulo} concluída para ${lista[0]?.competencia ?? `${ano}-${mes}`}.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Falha ao apurar o imposto.');
     } finally {
@@ -307,8 +310,8 @@ export default function Apuracoes() {
             </CardContent>
           </Card>
 
-          {resultado && (
-            <Card>
+          {resultados.map((resultado) => (
+            <Card key={`${resultado.imposto}-${resultado.competencia}`}>
               <CardHeader>
                 <CardTitle>
                   {resultado.imposto} — {resultado.competencia}
@@ -351,7 +354,7 @@ export default function Apuracoes() {
                 </dl>
               </CardContent>
             </Card>
-          )}
+          ))}
         </TabsContent>
       </Tabs>
     </div>

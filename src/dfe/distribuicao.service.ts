@@ -45,7 +45,15 @@ export class DistribuicaoService {
     const agora = Date.now();
     const espera = this.emEspera(cursor, agora);
     if (espera) {
-      return { status: 'aguardando', motivo: espera.motivo, ate: espera.ate, cursor };
+      const ate = espera.ate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      return {
+        estado: 'aguardando' as const,
+        documentosNovos: 0,
+        ultimoNSU: cursor.ultNsu,
+        maxNSU: cursor.maxNsu,
+        cStat: cursor.ultimoCStat ?? '—',
+        mensagem: `${espera.motivo} Próxima janela: ${ate}.`,
+      };
     }
 
     const tpAmb = Number(this.config.get('APURAX_DFE_TPAMB') ?? 2); // 2=homolog por padrão (seguro)
@@ -78,7 +86,24 @@ export class DistribuicaoService {
       pfx.fill(0); // zera o material em claro
     }
 
-    return { status: 'concluido', modelo, ciclos };
+    // Normaliza para o contrato da tela Captura ({ documentosNovos, ultimoNSU, maxNSU, cStat, mensagem }).
+    const novos = ciclos.reduce((s, c) => s + (Number(c.nfeCompletas) || 0) + (Number(c.cteCompletas) || 0), 0);
+    const ultimo: Record<string, unknown> = ciclos[ciclos.length - 1] ?? {};
+    const ultimoNSU = String(ultimo.ultNsu ?? cursor.ultNsu);
+    const maxNSU = String(ultimo.maxNsu ?? cursor.maxNsu);
+    const cStat = String(ultimo.cStat ?? cursor.ultimoCStat ?? '—');
+    return {
+      estado: 'concluido' as const,
+      modelo,
+      documentosNovos: novos,
+      ultimoNSU,
+      maxNSU,
+      cStat,
+      mensagem:
+        novos > 0
+          ? `Captura concluída: ${novos} documento(s) novo(s) capturado(s) (NSU ${ultimoNSU}/${maxNSU}).`
+          : `Captura concluída: nenhum documento novo no momento (NSU ${ultimoNSU}/${maxNSU}, cStat ${cStat}).`,
+    };
   }
 
   /** Decodifica e roteia cada docZip para a ingestão existente (NF-e/CT-e). */

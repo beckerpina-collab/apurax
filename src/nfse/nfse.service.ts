@@ -62,11 +62,15 @@ export class NfseService {
     return {
       notaServicoId: nota.id,
       chaveAcesso: nota.chaveAcesso,
+      // Contrato comum da tela Importar XML. NFS-e gera DÉBITO de ISS (apuração),
+      // não crédito de entrada — por isso creditoPotencial é zero aqui.
+      totalItens: 1,
+      creditoPotencial: { ICMS: 0, PIS: 0, COFINS: 0 },
       prestador: n.prestadorCnpj,
       vServico: nota.vServ.toFixed(2),
       vIss: nota.vIss.toFixed(2),
       retido: n.tpRetISSQN !== '1',
-      observacao: 'NFS-e importada. O ISS é apurado por competência em /apuracao/iss.',
+      observacao: 'NFS-e importada. O ISS é apurado por competência em /apuracao/iss (não gera crédito de entrada).',
     };
   }
 

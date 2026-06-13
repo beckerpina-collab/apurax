@@ -12,13 +12,28 @@ export interface ItemParaClassificar {
   cstCofins?: string;
 }
 
-export interface ResultadoClassificacao {
+/** Saída crua do tool da IA. */
+interface SaidaTool {
   ncmCoerente: boolean;
   cfopCoerente: boolean;
+  ncmSugerido: string;
+  cfopSugerido: string;
   cstBloqueiaCreditoIndevidamente: boolean;
   confianca: number;
   alertas: string[];
   justificativa: string;
+}
+
+/** Contrato consumido pela tela Validador de NCM. */
+export interface ResultadoValidacao {
+  veredito: 'OK' | 'ATENCAO' | 'DIVERGENCIA';
+  confianca: number;
+  ncmInformado: string;
+  ncmSugerido: string;
+  cfopInformado: string;
+  cfopSugerido: string;
+  alertas: string[];
+  observacao: string;
   origemIA: true;
 }
 
@@ -31,7 +46,7 @@ export interface ResultadoClassificacao {
 export class ClassificacaoService {
   constructor(@Inject(ANTHROPIC_CLIENT) private readonly anthropic: Anthropic) {}
 
-  async classificar(item: ItemParaClassificar): Promise<ResultadoClassificacao> {
+  async classificar(item: ItemParaClassificar): Promise<ResultadoValidacao> {
     const prompt =
       `Item da NF-e de entrada:\n` +
       `- Descrição: ${item.descricao}\n` +
@@ -57,7 +72,23 @@ export class ClassificacaoService {
     if (!bloco) {
       throw new Error('Classificador não retornou a ferramenta esperada.');
     }
-    const dados = bloco.input as Omit<ResultadoClassificacao, 'origemIA'>;
-    return { ...dados, origemIA: true };
+    const d = bloco.input as SaidaTool;
+    const veredito: ResultadoValidacao['veredito'] =
+      !d.ncmCoerente || !d.cfopCoerente || d.cstBloqueiaCreditoIndevidamente
+        ? 'DIVERGENCIA'
+        : (d.alertas?.length ?? 0) > 0
+          ? 'ATENCAO'
+          : 'OK';
+    return {
+      veredito,
+      confianca: d.confianca,
+      ncmInformado: item.ncm,
+      ncmSugerido: d.ncmSugerido || item.ncm,
+      cfopInformado: item.cfop,
+      cfopSugerido: d.cfopSugerido || item.cfop,
+      alertas: d.alertas ?? [],
+      observacao: d.justificativa,
+      origemIA: true,
+    };
   }
 }

@@ -20,8 +20,8 @@ type ModeloDoc = 'nfe' | 'cte' | 'nfse';
 
 interface ResultadoImport {
   chaveAcesso: string;
-  totalItens: number;
-  creditoPotencial: { ICMS: number; PIS: number; COFINS: number };
+  totalItens?: number;
+  creditoPotencial?: { ICMS: number | string; PIS: number | string; COFINS: number | string };
   observacao: string;
 }
 
@@ -123,7 +123,7 @@ export default function ImportarXml() {
       try {
         const r = (await api.importarDoc(modelo, empresaId, item.xml)) as ResultadoImport;
         ok += 1;
-        resultados.push({ nome: item.nome, modelo, status: 'OK', mensagem: `Chave ${r.chaveAcesso.slice(0, 12)}… · ${r.totalItens} item(ns)` });
+        resultados.push({ nome: item.nome, modelo, status: 'OK', mensagem: `Chave ${(r.chaveAcesso ?? '').slice(0, 12)}… · ${r.totalItens ?? 1} item(ns)` });
       } catch (e) {
         resultados.push({ nome: item.nome, modelo, status: 'DIVERGENCIA', mensagem: (e as Error).message });
       }
@@ -311,7 +311,7 @@ export default function ImportarXml() {
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total de itens</p>
-                <p className="mt-1 text-sm text-foreground">{resultado.totalItens}</p>
+                <p className="mt-1 text-sm text-foreground">{resultado.totalItens ?? 1}</p>
               </div>
             </div>
 
@@ -320,15 +320,15 @@ export default function ImportarXml() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-border p-4">
                   <p className="text-xs text-muted-foreground">ICMS</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial.ICMS)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.ICMS ?? 0)}</p>
                 </div>
                 <div className="rounded-lg border border-border p-4">
                   <p className="text-xs text-muted-foreground">PIS</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial.PIS)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.PIS ?? 0)}</p>
                 </div>
                 <div className="rounded-lg border border-border p-4">
                   <p className="text-xs text-muted-foreground">COFINS</p>
-                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial.COFINS)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.COFINS ?? 0)}</p>
                 </div>
               </div>
             </div>

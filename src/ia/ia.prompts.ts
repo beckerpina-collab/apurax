@@ -63,6 +63,16 @@ export const TOOL_CLASSIFICACAO: Anthropic.Tool = {
     properties: {
       ncmCoerente: { type: 'boolean', description: 'O NCM é coerente com a descrição do produto?' },
       cfopCoerente: { type: 'boolean', description: 'O CFOP é coerente com uma operação de entrada?' },
+      ncmSugerido: {
+        type: 'string',
+        description:
+          'NCM (8 dígitos) correto para o produto. Se o NCM informado já estiver coerente, REPITA o informado.',
+      },
+      cfopSugerido: {
+        type: 'string',
+        description:
+          'CFOP correto para a operação de entrada. Se o CFOP informado já estiver coerente, REPITA o informado. Se não houver CFOP informado, sugira o mais provável.',
+      },
       cstBloqueiaCreditoIndevidamente: {
         type: 'boolean',
         description: 'Há indício de CST que bloqueia crédito que deveria ser aproveitado?',
@@ -74,6 +84,8 @@ export const TOOL_CLASSIFICACAO: Anthropic.Tool = {
     required: [
       'ncmCoerente',
       'cfopCoerente',
+      'ncmSugerido',
+      'cfopSugerido',
       'cstBloqueiaCreditoIndevidamente',
       'confianca',
       'alertas',
@@ -82,4 +94,4 @@ export const TOOL_CLASSIFICACAO: Anthropic.Tool = {
   },
 };
 
-export const SYSTEM_CLASSIFICACAO = `Você é um classificador fiscal. Dado um item de NF-e, avalie a coerência entre descrição, NCM, CFOP e CST. Sinalize divergências e possíveis CST que bloqueiam crédito indevidamente. Você NÃO calcula imposto. Responda exclusivamente chamando a ferramenta registrar_classificacao.`;
+export const SYSTEM_CLASSIFICACAO = `Você é um classificador fiscal. Dado um item de NF-e, avalie a coerência entre descrição, NCM, CFOP e CST. Sinalize divergências, sugira o NCM e o CFOP corretos (repetindo o informado quando já estiver certo) e possíveis CST que bloqueiam crédito indevidamente. Você NÃO calcula imposto. Responda exclusivamente chamando a ferramenta registrar_classificacao.`;

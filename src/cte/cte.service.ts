@@ -114,6 +114,13 @@ export class CteService {
     return {
       documentoId: doc.id,
       chaveAcesso: doc.chaveAcesso,
+      // Contrato comum da tela Importar XML (CT-e = 1 "item"; crédito é só ICMS do frete).
+      totalItens: 1,
+      creditoPotencial: {
+        ICMS: resultado.creditoPermitido ? resultado.valorCredito.toNumber() : 0,
+        PIS: 0,
+        COFINS: 0,
+      },
       transportadora: { cnpj: cte.emitenteCnpj, nome: cte.emitenteNome },
       tomador: { cnpj: cte.tomadorCnpj, papel: cte.tomadorPapel, ehEmpresa: tomadorEhEmpresa },
       trajeto: cte.ufIni && cte.ufFim ? `${cte.ufIni} → ${cte.ufFim}` : undefined,
