@@ -88,23 +88,35 @@ export class DistribuicaoService {
 
     // Normaliza para o contrato da tela Captura ({ documentosNovos, ultimoNSU, maxNSU, cStat, mensagem }).
     const novos = ciclos.reduce((s, c) => s + (Number(c.nfeCompletas) || 0) + (Number(c.cteCompletas) || 0), 0);
+    const resumos = ciclos.reduce((s, c) => s + (Number(c.resumos) || 0), 0);
     const ultimo: Record<string, unknown> = ciclos[ciclos.length - 1] ?? {};
     const ultimoNSU = String(ultimo.ultNsu ?? cursor.ultNsu);
     const maxNSU = String(ultimo.maxNsu ?? cursor.maxNsu);
     const cStat = String(ultimo.cStat ?? cursor.ultimoCStat ?? '—');
     const xMotivo = String(ultimo.xMotivo ?? '');
     const ambiente = tpAmb === 1 ? 'produção' : 'HOMOLOGAÇÃO (ambiente de teste — não traz notas reais)';
+    const faltam = maxNSU > ultimoNSU; // ainda há NSU a percorrer → clicar de novo
+    let mensagem: string;
+    if (novos > 0) {
+      mensagem =
+        `Capturados ${novos} documento(s) completo(s)${resumos > 0 ? ` + ${resumos} resumo(s)` : ''} ` +
+        `(NSU ${ultimoNSU}/${maxNSU}).${faltam ? ' Há mais — clique novamente para continuar.' : ''}`;
+    } else if (resumos > 0) {
+      mensagem =
+        `${resumos} resumo(s) de nota localizado(s) (NSU ${ultimoNSU}/${maxNSU}). ` +
+        `Para baixar o XML completo é preciso MANIFESTAR ciência da operação na SEFAZ.${faltam ? ' Clique novamente para continuar.' : ''}`;
+    } else {
+      mensagem = `Nenhum documento novo. cStat ${cStat}${xMotivo ? ` — ${xMotivo}` : ''}. Ambiente: ${ambiente}.`;
+    }
     return {
       estado: 'concluido' as const,
       modelo,
       documentosNovos: novos,
+      resumos,
       ultimoNSU,
       maxNSU,
       cStat,
-      mensagem:
-        novos > 0
-          ? `Captura concluída: ${novos} documento(s) novo(s) (NSU ${ultimoNSU}/${maxNSU}).`
-          : `Nenhum documento novo. cStat ${cStat}${xMotivo ? ` — ${xMotivo}` : ''}. Ambiente: ${ambiente}.`,
+      mensagem,
     };
   }
 

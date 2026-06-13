@@ -28,6 +28,7 @@ export class SefazDfeSoapClient implements SefazDfeClient {
       soapAction: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse',
       metodo: 'nfeDistDFeInteresse',
       dadosMsg: 'nfeDadosMsg',
+      versao: '1.35', // distDFeInt da NF-e (confirmado: cStat 138 em produção)
     },
     CTE: {
       1: 'https://www1.cte.fazenda.gov.br/CTeDistribuicaoDFe/CTeDistribuicaoDFe.asmx',
@@ -36,14 +37,15 @@ export class SefazDfeSoapClient implements SefazDfeClient {
       soapAction: 'http://www.portalfiscal.inf.br/cte/wsdl/CTeDistribuicaoDFe/cteDistDFeInteresse',
       metodo: 'cteDistDFeInteresse',
       dadosMsg: 'cteDadosMsg',
+      versao: '1.00', // CTeDistribuicaoDFe é v1.00 (PL_CTeDistDFe_100) — 1.35 dá cStat 239
     },
   } as const;
 
-  /** Monta o XML distDFeInt (puro — testável). */
-  montarDistDFeInt(params: ConsultaDfeParams, namespace: string): string {
+  /** Monta o XML distDFeInt (puro — testável). A versão difere por modelo. */
+  montarDistDFeInt(params: ConsultaDfeParams, namespace: string, versao = '1.35'): string {
     const nsu = params.ultNsu.padStart(15, '0');
     return (
-      `<distDFeInt versao="1.35" xmlns="${namespace}">` +
+      `<distDFeInt versao="${versao}" xmlns="${namespace}">` +
       `<tpAmb>${params.tpAmb}</tpAmb>` +
       `<cUFAutor>${params.cUF}</cUFAutor>` +
       `<CNPJ>${params.cnpj}</CNPJ>` +
@@ -55,7 +57,7 @@ export class SefazDfeSoapClient implements SefazDfeClient {
   async consultar(params: ConsultaDfeParams): Promise<RetDistDFe> {
     const cfg = this.endpoints[params.modelo];
     const url = cfg[params.tpAmb === 1 ? 1 : 2];
-    const distDFeInt = this.montarDistDFeInt(params, cfg.ns);
+    const distDFeInt = this.montarDistDFeInt(params, cfg.ns, cfg.versao);
     const envelope =
       `<?xml version="1.0" encoding="UTF-8"?>` +
       `<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">` +
