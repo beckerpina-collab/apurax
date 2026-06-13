@@ -34,7 +34,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 import { toast } from 'sonner';
-import { brl } from '@/lib/format';
+import { brl, mesAtualSP } from '@/lib/format';
 import { useEmpresa } from '@/lib/empresa-context';
 import { api, type ImpostoTipo } from '@/lib/api';
 
@@ -69,17 +69,24 @@ const IMPOSTOS: Array<{ label: string; value: ImpostoTipo }> = [
 
 export default function Apuracoes() {
   const { empresaId } = useEmpresa();
+  const competenciaAtual = mesAtualSP(); // 'YYYY-MM' no fuso de São Paulo
 
   // ---- Aba Créditos ----
   const [creditos, setCreditos] = useState<Apuracao[]>([]);
   const [carregandoCreditos, setCarregandoCreditos] = useState(false);
+  // '' = todos os meses; default = mês atual (São Paulo)
+  const [mesCreditos, setMesCreditos] = useState<string>(competenciaAtual);
 
   useEffect(() => {
     let ativo = true;
     (async () => {
       setCarregandoCreditos(true);
       try {
-        const dados = (await api.apuracoes()) as Apuracao[];
+        const [anoStr, mesStr] = mesCreditos.split('-');
+        const dados = (await api.apuracoes(
+          anoStr ? Number(anoStr) : undefined,
+          mesStr ? Number(mesStr) : undefined,
+        )) as Apuracao[];
         if (ativo) setCreditos(dados);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Falha ao carregar os créditos.');
@@ -90,12 +97,12 @@ export default function Apuracoes() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [mesCreditos]);
 
-  // ---- Aba Imposto a pagar ----
+  // ---- Aba Imposto a pagar (competência pré-selecionada = mês atual) ----
   const [tipo, setTipo] = useState<ImpostoTipo>('icms');
-  const [ano, setAno] = useState(2026);
-  const [mes, setMes] = useState(2);
+  const [ano, setAno] = useState(Number(competenciaAtual.slice(0, 4)));
+  const [mes, setMes] = useState(Number(competenciaAtual.slice(5, 7)));
   const [apurando, setApurando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImposto | null>(null);
 
@@ -133,16 +140,30 @@ export default function Apuracoes() {
         <TabsContent value="creditos" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Créditos apurados</CardTitle>
                   <CardDescription>
                     Itens de documentos de entrada com crédito sugerido, homologado ou glosado.
                   </CardDescription>
                 </div>
-                {carregandoCreditos && (
-                  <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
+                <div className="flex items-center gap-2">
+                  {carregandoCreditos && (
+                    <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  <Input
+                    type="month"
+                    value={mesCreditos}
+                    onChange={(e) => setMesCreditos(e.target.value)}
+                    className="w-[160px]"
+                    aria-label="Mês dos créditos"
+                  />
+                  {mesCreditos && (
+                    <Button variant="ghost" size="sm" onClick={() => setMesCreditos('')}>
+                      Todos os meses
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -150,7 +171,11 @@ export default function Apuracoes() {
                 <EmptyState
                   icon={Receipt}
                   title="Nenhum crédito apurado"
-                  description="Importe documentos de entrada ou sincronize com a SEFAZ para gerar créditos."
+                  description={
+                    mesCreditos
+                      ? `Nenhum crédito em ${mesCreditos}. Escolha outro mês, clique em "Todos os meses", ou importe documentos de entrada.`
+                      : 'Importe documentos de entrada ou sincronize com a SEFAZ para gerar créditos.'
+                  }
                 />
               ) : (
                 <div className="overflow-x-auto">

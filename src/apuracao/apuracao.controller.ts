@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
 import { Role, StatusApuracao } from '@prisma/client';
+import { parseCompetencia } from '../common/competencia';
 import { CurrentUser, UsuarioAutenticado } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApuracaoService } from './apuracao.service';
@@ -10,8 +11,9 @@ export class ApuracaoController {
   constructor(private readonly apuracoes: ApuracaoService) {}
 
   @Get()
-  listar(@Query('status') status?: StatusApuracao) {
-    return this.apuracoes.listar(status);
+  listar(@Query('status') status?: StatusApuracao, @Query('ano') ano?: string, @Query('mes') mes?: string) {
+    const c = parseCompetencia(ano, mes);
+    return this.apuracoes.listar(status, c.ano, c.mes);
   }
 
   @Roles(Role.ADMIN, Role.CONTADOR)

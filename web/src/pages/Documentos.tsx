@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { api } from '@/lib/api';
-import { brl, cnpjMask, dataBR } from '@/lib/format';
+import { brl, cnpjMask, dataBR, mesAtualSP } from '@/lib/format';
 
 type Modelo = 'NF-e' | 'CT-e' | 'NFS-e';
 
@@ -30,18 +30,6 @@ interface DocumentoEntrada {
 type Filtro = 'Todos' | Modelo;
 
 const FILTROS: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
-
-/** Mês atual no formato YYYY-MM, SEMPRE no fuso de São Paulo (preferência do usuário). */
-function mesAtualSP(): string {
-  const partes = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(new Date());
-  const ano = partes.find((p) => p.type === 'year')?.value ?? '2026';
-  const mes = partes.find((p) => p.type === 'month')?.value ?? '01';
-  return `${ano}-${mes}`;
-}
 
 export default function Documentos() {
   const [docs, setDocs] = useState<DocumentoEntrada[]>([]);

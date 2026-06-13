@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { faixaCompetencia } from '../common/competencia';
+import { rotuloModelo } from '../common/modelo';
 import { MotorCreditoService } from '../motor-credito/motor-credito.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NfeParserService } from './nfe-parser.service';
@@ -237,7 +239,7 @@ export class NfeService {
    * créditos a partir das apurações (ICMS, PIS+COFINS).
    */
   async listarDocumentos(filtro: { ano?: number; mes?: number } = {}) {
-    const periodo = this.faixaCompetencia(filtro);
+    const periodo = faixaCompetencia(filtro.ano, filtro.mes);
     const docs = await this.prisma.scoped.documentoFiscal.findMany({
       where: {
         tipoOperacao: 'ENTRADA',
@@ -273,15 +275,6 @@ export class NfeService {
     });
   }
 
-  /** Faixa [início, fim) sobre a dataEmissão p/ a competência (mês) informada.
-   *  Fronteiras em UTC, IGUAIS às do painel, p/ as duas telas baterem. */
-  private faixaCompetencia(f: { ano?: number; mes?: number }): { inicio: Date; fim: Date } | null {
-    if (!f.ano || !f.mes) return null;
-    const inicio = new Date(Date.UTC(f.ano, f.mes - 1, 1));
-    const fim = new Date(Date.UTC(f.mes === 12 ? f.ano + 1 : f.ano, f.mes === 12 ? 0 : f.mes, 1));
-    return { inicio, fim };
-  }
-
   async detalhe(id: string) {
     const doc = await this.prisma.scoped.documentoFiscal.findFirst({
       where: { id },
@@ -292,11 +285,4 @@ export class NfeService {
     }
     return doc;
   }
-}
-
-/** Código do modelo (55/65/57…) → rótulo curto da tela. */
-function rotuloModelo(modelo: string): 'NF-e' | 'CT-e' | 'NFS-e' {
-  if (modelo === '55' || modelo === '65') return 'NF-e';
-  if (modelo === '57') return 'CT-e';
-  return 'NFS-e';
 }

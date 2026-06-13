@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { StatusApuracao } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { faixaCompetencia } from '../common/competencia';
+import { rotuloModelo } from '../common/modelo';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -10,15 +12,36 @@ export class ApuracaoService {
     private readonly auditoria: AuditoriaService,
   ) {}
 
-  listar(status?: StatusApuracao) {
-    return this.prisma.scoped.apuracaoCredito.findMany({
-      where: status ? { status } : {},
+  /**
+   * Lista os créditos no formato da tela ({documento: 'NF-e 123', item, origem…}).
+   * O registro cru traz documento/item como OBJETOS — renderizá-los direto
+   * quebraria o React (tela branca). Filtro opcional por competência (emissão).
+   */
+  async listar(status?: StatusApuracao, ano?: number, mes?: number) {
+    const periodo = faixaCompetencia(ano, mes);
+    const apuracoes = await this.prisma.scoped.apuracaoCredito.findMany({
+      where: {
+        ...(status ? { status } : {}),
+        ...(periodo ? { documento: { dataEmissao: { gte: periodo.inicio, lt: periodo.fim } } } : {}),
+      },
       orderBy: { criadoEm: 'desc' },
       include: {
-        item: { select: { descricao: true, ncm: true, cfop: true } },
-        documento: { select: { chaveAcesso: true } },
+        item: { select: { descricao: true } },
+        documento: { select: { modelo: true, numero: true, dataEmissao: true } },
       },
     });
+    return apuracoes.map((a) => ({
+      id: a.id,
+      documento: `${rotuloModelo(a.documento.modelo)} ${a.documento.numero}`,
+      item: a.item.descricao,
+      tributo: a.tributo,
+      creditoPermitido: a.creditoPermitido,
+      valorCredito: Number(a.valorCredito),
+      baseLegal: a.baseLegal,
+      status: a.status,
+      origem: rotuloModelo(a.documento.modelo),
+      dataEmissao: a.documento.dataEmissao.toISOString(),
+    }));
   }
 
   private async buscar(id: string) {
@@ -45,6 +68,8 @@ export class ApuracaoService {
     });
     return atualizado;
   }
+
+  // (homologar/glosar devolvem o registro cru — só consumidos por chamadas diretas)
 
   /** Glosa: rejeita o crédito sugerido, com motivo registrado na trilha. */
   async glosar(id: string, usuarioId: string, motivo: string) {

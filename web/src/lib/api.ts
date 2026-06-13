@@ -186,12 +186,16 @@ export const api = {
     return http<typeof DOCUMENTOS>(`/fiscal/documentos${sufixo}`);
   },
 
-  async apuracoes() {
+  async apuracoes(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();
-      return APURACOES;
+      return APURACOES; // mock não tem data por crédito — filtro só na API real
     }
-    return http<typeof APURACOES>('/apuracoes');
+    const qs = new URLSearchParams();
+    if (ano) qs.set('ano', String(ano));
+    if (mes) qs.set('mes', String(mes));
+    const sufixo = qs.toString() ? `?${qs.toString()}` : '';
+    return http<typeof APURACOES>(`/apuracoes${sufixo}`);
   },
 
   async dashboard(ano?: number, mes?: number) {

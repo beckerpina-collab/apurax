@@ -14,6 +14,18 @@ export const dataBR = (s: string | null | undefined): string => {
   return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 };
 
+/** Mês atual no formato YYYY-MM, SEMPRE no fuso de São Paulo (preferência do usuário). */
+export function mesAtualSP(): string {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date());
+  const ano = partes.find((p) => p.type === 'year')?.value ?? '2026';
+  const mes = partes.find((p) => p.type === 'month')?.value ?? '01';
+  return `${ano}-${mes}`;
+}
+
 export const dataHoraBR = (s: string | null | undefined): string => {
   if (!s) return '—';
   const d = new Date(s);
