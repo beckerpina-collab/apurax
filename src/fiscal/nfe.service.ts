@@ -291,6 +291,8 @@ export class NfeService {
         id: d.id,
         chaveAcesso: d.chaveAcesso,
         modelo: rotuloModelo(d.modelo),
+        numero: d.numero,
+        serie: d.serie,
         tipoOperacao: d.tipoOperacao, // 'ENTRADA' | 'SAIDA'
         emitente: d.emitenteNome,
         cnpjEmitente: d.emitenteCnpj,

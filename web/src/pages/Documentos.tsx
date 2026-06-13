@@ -20,6 +20,8 @@ interface Documento {
   id: string;
   chaveAcesso: string;
   modelo: Modelo;
+  numero: string;
+  serie: string;
   tipoOperacao: TipoOperacao;
   emitente: string;
   cnpjEmitente: string;
@@ -218,6 +220,7 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Modelo</TableHead>
+                    <TableHead>Número</TableHead>
                     <TableHead>{ehEntrada ? 'Emitente' : 'Destinatário'}</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -231,6 +234,10 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                   {filtrados.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell>{d.modelo}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="font-medium">{d.numero || '—'}</span>
+                        {d.serie ? <span className="text-xs text-muted-foreground"> · sér. {d.serie}</span> : null}
+                      </TableCell>
                       <TableCell>
                         {ehEntrada ? (
                           <>
