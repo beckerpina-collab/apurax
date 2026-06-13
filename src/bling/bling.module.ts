@@ -19,10 +19,15 @@ import { BlingTokenService } from './bling-token.service';
     {
       // Mesma master key de custódia do A1 (envelope encryption). KMS em produção.
       provide: KMS_MASTER_KEY,
-      useFactory: (config: ConfigService) =>
-        createHash('sha256')
-          .update(config.get<string>('APURAX_KMS_MASTER_KEY') ?? 'apurax-dev-master-key-trocar-em-producao')
-          .digest(),
+      useFactory: (config: ConfigService) => {
+        const chave = config.get<string>('APURAX_KMS_MASTER_KEY');
+        if (!chave && config.get('NODE_ENV') === 'production') {
+          throw new Error('APURAX_KMS_MASTER_KEY ausente em produção — abortando (custódia não pode usar chave padrão).');
+        }
+        return createHash('sha256')
+          .update(chave ?? 'apurax-dev-master-key-trocar-em-producao')
+          .digest();
+      },
       inject: [ConfigService],
     },
   ],

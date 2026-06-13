@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -9,6 +10,8 @@ import { RegistrarDto } from './dto/registrar.dto';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  // 8 tentativas/min por IP — corta brute-force de credenciais.
+  @Throttle({ default: { ttl: 60_000, limit: 8 } })
   @Public()
   @Post('login')
   @HttpCode(200)
@@ -16,6 +19,8 @@ export class AuthController {
     return this.auth.login(dto.email, dto.senha);
   }
 
+  // 4 cadastros/min por IP — evita criação em massa de tenants.
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
   @Public()
   @Post('registrar')
   @HttpCode(201)
@@ -23,6 +28,7 @@ export class AuthController {
     return this.auth.registrar(dto);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @Public()
   @Post('refresh')
   @HttpCode(200)

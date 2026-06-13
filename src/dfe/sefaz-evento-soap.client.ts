@@ -36,7 +36,8 @@ const ENVELOPED = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 @Injectable()
 export class SefazEventoSoapClient {
   private readonly logger = new Logger(SefazEventoSoapClient.name);
-  private readonly parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', removeNSPrefix: true });
+  // processEntities:false neutraliza XXE na resposta da SEFAZ.
+  private readonly parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', removeNSPrefix: true, processEntities: false });
 
   private readonly url = {
     1: 'https://www1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',

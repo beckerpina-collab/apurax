@@ -9,6 +9,9 @@ async function bootstrap(): Promise<void> {
   // rawBody: true mantém o corpo CRU disponível (req.rawBody) — necessário para
   // validar a assinatura HMAC do webhook do Bling sobre os bytes exatos.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  // Atrás do proxy do Render: confiar no X-Forwarded-For p/ o rate limit por IP
+  // funcionar (senão todos os clientes aparecem com o IP do proxy).
+  app.set('trust proxy', 1);
   // Limite de 10mb (padrão do Express é 100kb): NF-e com muitos itens e o PFX
   // em base64 passam disso. useBodyParser preserva o rawBody do webhook.
   app.useBodyParser('json', { limit: '10mb' });

@@ -18,7 +18,8 @@ import { ConsultaDfeParams, DocZipBruto, RetDistDFe, SefazDfeClient } from './se
 @Injectable()
 export class SefazDfeSoapClient implements SefazDfeClient {
   private readonly logger = new Logger(SefazDfeSoapClient.name);
-  private readonly parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', removeNSPrefix: true });
+  // processEntities:false neutraliza XXE (entidade externa / billion laughs) na resposta da SEFAZ.
+  private readonly parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', removeNSPrefix: true, processEntities: false });
 
   private readonly endpoints = {
     NFE: {

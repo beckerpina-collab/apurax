@@ -22,10 +22,17 @@ import { SefazEventoSoapClient } from './sefaz-evento-soap.client';
       // Master key da custódia (envelope encryption). Em produção, substituir por
       // KMS (AWS/GCP/Azure). sha256 garante 32 bytes a partir do segredo de ambiente.
       provide: KMS_MASTER_KEY,
-      useFactory: (config: ConfigService) =>
-        createHash('sha256')
-          .update(config.get<string>('APURAX_KMS_MASTER_KEY') ?? 'apurax-dev-master-key-trocar-em-producao')
-          .digest(),
+      useFactory: (config: ConfigService) => {
+        const chave = config.get<string>('APURAX_KMS_MASTER_KEY');
+        // Em produção a master key é OBRIGATÓRIA — sem ela, a custódia (A1/tokens)
+        // usaria um default conhecido e tudo seria decifrável. Falha o boot.
+        if (!chave && config.get('NODE_ENV') === 'production') {
+          throw new Error('APURAX_KMS_MASTER_KEY ausente em produção — abortando (custódia não pode usar chave padrão).');
+        }
+        return createHash('sha256')
+          .update(chave ?? 'apurax-dev-master-key-trocar-em-producao')
+          .digest();
+      },
       inject: [ConfigService],
     },
     { provide: SEFAZ_DFE_CLIENT, useClass: SefazDfeSoapClient },

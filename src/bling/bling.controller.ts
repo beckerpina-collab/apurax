@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Post, Query, RawBodyRequest, Req, Res } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentUser, UsuarioAutenticado } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -19,6 +20,7 @@ export class BlingController {
   }
 
   /** Callback do Bling (redirect do navegador) — PÚBLICO (sem JWT). */
+  @SkipThrottle() // redirect do navegador vindo do Bling
   @Public()
   @Get('callback')
   async callback(
@@ -33,6 +35,7 @@ export class BlingController {
 
   /** Webhook do Bling (eventos de NF-e) — PÚBLICO; autentica pela assinatura HMAC
    *  do corpo CRU (X-Bling-Signature-256, chave = client_secret). */
+  @SkipThrottle() // originado pelo Bling, autenticado por HMAC — não throttlar
   @Public()
   @Post('webhook')
   webhook(@Req() req: RawBodyRequest<Request>, @Headers('x-bling-signature-256') signature: string) {

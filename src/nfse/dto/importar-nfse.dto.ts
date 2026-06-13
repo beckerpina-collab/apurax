@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MinLength } from 'class-validator';
+import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class ImportarNfseDto {
   @IsUUID()
@@ -7,5 +7,6 @@ export class ImportarNfseDto {
   /** XML da NFS-e (padrão nacional). */
   @IsString()
   @MinLength(50)
+  @MaxLength(5_242_880)
   xml!: string;
 }

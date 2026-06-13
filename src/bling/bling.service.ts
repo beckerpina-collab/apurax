@@ -87,6 +87,10 @@ export class BlingService {
     const st = await this.prisma.blingOAuthState.findUnique({ where: { state } });
     if (!st) return back('bling=erro&motivo=state_invalido');
     await this.prisma.blingOAuthState.delete({ where: { state } }).catch(() => undefined); // uso único
+    // State expira em 15 min (anti-replay/CSRF de state antigo).
+    if (Date.now() - st.criadoEm.getTime() > 15 * 60 * 1000) {
+      return back('bling=erro&motivo=state_expirado');
+    }
 
     try {
       const { clientId, clientSecret, redirectUri } = this.token.creds();
@@ -360,6 +364,11 @@ export class BlingService {
       if (/^https?:\/\//i.test(bruto)) {
         try {
           const url = new URL(bruto);
+          // SSRF: recusa IP privado / loopback / link-local / metadata de nuvem.
+          if (this.hostUrlPerigoso(url.hostname)) {
+            this.logger.warn(`Bling download XML: host bloqueado (SSRF): ${url.hostname}`);
+            continue;
+          }
           const doBling = /(^|\.)bling\.com\.br$/i.test(url.hostname);
           await blingLimiter.aguardar();
           const res = await fetch(bruto, {
@@ -383,6 +392,19 @@ export class BlingService {
       if (inline) return inline;
     }
     return null;
+  }
+
+  /** Bloqueia hosts internos/privados/metadata (anti-SSRF) ao baixar XML por link. */
+  private hostUrlPerigoso(hostname: string): boolean {
+    const h = hostname.toLowerCase();
+    if (h === 'localhost' || h === '[::1]' || h.endsWith('.localhost') || h.endsWith('.internal') || h.endsWith('.local')) {
+      return true;
+    }
+    const ip = h.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/);
+    if (ip) {
+      return /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.)/.test(h);
+    }
+    return false;
   }
 
   /** Incrementa um contador da varredura da empresa (se houver uma em memória). */

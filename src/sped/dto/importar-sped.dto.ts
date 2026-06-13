@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MinLength } from 'class-validator';
+import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class ImportarSpedDto {
   @IsUUID()
@@ -7,5 +7,6 @@ export class ImportarSpedDto {
   /** Conteúdo do arquivo SPED EFD-Contribuições (texto pipe-delimitado). */
   @IsString()
   @MinLength(50)
+  @MaxLength(10_485_760)
   conteudo!: string;
 }

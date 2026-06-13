@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ClsModule } from 'nestjs-cls';
 import { join } from 'path';
 import { PrismaModule } from './prisma/prisma.module';
@@ -43,6 +44,9 @@ const serveStatic =
     ...serveStatic,
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(), // captura agendada da SEFAZ (cron)
+    // Rate limiting global: 120 req/min por IP (default). Endpoints sensíveis
+    // (login/registrar/refresh) têm @Throttle mais estrito; webhook/callback têm @SkipThrottle.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     // CLS: cada requisição roda num contexto isolado; a JwtStrategy grava aqui o
     // tenantId, lido depois pelo PrismaService para a RLS.
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
@@ -65,6 +69,8 @@ const serveStatic =
   ],
   controllers: [HealthController],
   providers: [
+    // Rate limit global (primeiro a rodar) — defesa contra brute-force/DoS.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     // JwtAuthGuard global (rotas são protegidas por padrão; use @Public para abrir).
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

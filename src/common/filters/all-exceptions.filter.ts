@@ -51,8 +51,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = `Erro de banco (${exception.code}).`;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // NÃO vazar o detalhe interno (URLs da SEFAZ, erros de conexão, IDs) ao cliente.
+      // O detalhe vai SÓ para o log; o cliente recebe mensagem genérica.
       this.logger.error(exception.message, exception.stack);
+      message = 'Erro interno ao processar a solicitação. Tente novamente.';
     }
 
     response.status(status).json({
