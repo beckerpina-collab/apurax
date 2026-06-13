@@ -103,6 +103,7 @@ export const DASHBOARD = {
   documentos: 4,
   anosDisponiveis: [2026, 2025],
   impostoAPagar: { ICMS: 4200.0, IPI: 0, 'PIS/COFINS': 3120.0, ISS: 150.0, total: 7470.0 },
+  saidas: { quantidade: 2, faturamento: 12200.0, icmsDebito: 2196.0 },
   serie: [
     { mes: 'set', credito: 1820, debito: 6400 },
     { mes: 'out', credito: 2310, debito: 6900 },

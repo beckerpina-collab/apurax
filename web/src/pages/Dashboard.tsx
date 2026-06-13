@@ -1,4 +1,4 @@
-import { ArrowLeftRight, FileWarning, Receipt, TrendingUp } from 'lucide-react';
+import { Banknote, FileWarning, Receipt, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import EmptyState from '@/components/EmptyState';
@@ -86,10 +86,16 @@ export default function Dashboard() {
       ) : (
         <>
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Crédito sugerido" value={brl(d.creditoSugerido)} subtitle="aguardando homologação" icon={TrendingUp} variant="primary" />
-        <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="débito − crédito do período" icon={Receipt} />
-        <StatCard title="Lacuna no SPED" value={brl(d.lacunaSped)} subtitle="crédito não escriturado" icon={FileWarning} />
-        <StatCard title="Delta reforma" value={brl(d.deltaReforma)} subtitle="CBS/IBS vs. legado" icon={ArrowLeftRight} variant="accent" />
+        <StatCard
+          title="Faturamento (saídas)"
+          value={brl(d.saidas.faturamento)}
+          subtitle={`${d.saidas.quantidade} nota(s) · ICMS ${brl(d.saidas.icmsDebito)}`}
+          icon={Banknote}
+          variant="primary"
+        />
+        <StatCard title="Crédito sugerido" value={brl(d.creditoSugerido)} subtitle="entradas · aguardando homologação" icon={TrendingUp} />
+        <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="após rodar a apuração" icon={Receipt} />
+        <StatCard title="Lacuna no SPED" value={brl(d.lacunaSped)} subtitle="crédito não escriturado" icon={FileWarning} variant="accent" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

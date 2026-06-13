@@ -27,26 +27,37 @@ export class DashboardService {
     const whereLacuna = periodo ? { importacao: { dtIni: { gte: periodo.inicio, lt: periodo.fim } } } : {};
     const whereImposto = filtro.ano ? { ano: filtro.ano } : {};
 
-    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs] = await Promise.all([
-      db.apuracaoCredito.aggregate({
-        _sum: { valorCredito: true },
-        where: { status: 'SUGERIDO', creditoPermitido: true, ...whereCredito },
-      }),
-      db.apuracaoCredito.aggregate({
-        _sum: { valorCredito: true },
-        where: { status: 'HOMOLOGADO', creditoPermitido: true, ...whereCredito },
-      }),
-      db.lacunaCredito.aggregate({ _sum: { lacuna: true }, where: { lacuna: { gt: 0 }, ...whereLacuna } }),
-      db.documentoFiscal.count({ where: whereDoc }),
-      db.apuracaoImposto.groupBy({
-        by: ['ano', 'mes'],
-        _sum: { credito: true, aRecolher: true },
-        where: whereImposto,
-        orderBy: [{ ano: 'asc' }, { mes: 'asc' }],
-      }),
-      // faixa de anos com documentos (sempre SEM filtro — alimenta o seletor)
-      db.documentoFiscal.aggregate({ _min: { dataEmissao: true }, _max: { dataEmissao: true } }),
-    ]);
+    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms] =
+      await Promise.all([
+        db.apuracaoCredito.aggregate({
+          _sum: { valorCredito: true },
+          where: { status: 'SUGERIDO', creditoPermitido: true, ...whereCredito },
+        }),
+        db.apuracaoCredito.aggregate({
+          _sum: { valorCredito: true },
+          where: { status: 'HOMOLOGADO', creditoPermitido: true, ...whereCredito },
+        }),
+        db.lacunaCredito.aggregate({ _sum: { lacuna: true }, where: { lacuna: { gt: 0 }, ...whereLacuna } }),
+        db.documentoFiscal.count({ where: whereDoc }),
+        db.apuracaoImposto.groupBy({
+          by: ['ano', 'mes'],
+          _sum: { credito: true, aRecolher: true },
+          where: whereImposto,
+          orderBy: [{ ano: 'asc' }, { mes: 'asc' }],
+        }),
+        // faixa de anos com documentos (sempre SEM filtro — alimenta o seletor)
+        db.documentoFiscal.aggregate({ _min: { dataEmissao: true }, _max: { dataEmissao: true } }),
+        // SAÍDAS importadas (direto dos documentos — não precisa rodar apuração)
+        db.documentoFiscal.aggregate({
+          _count: true,
+          _sum: { valorTotal: true },
+          where: { tipoOperacao: 'SAIDA', ...whereDoc },
+        }),
+        db.itemDocumento.aggregate({
+          _sum: { vIcms: true },
+          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+        }),
+      ]);
 
     const serie = (filtro.ano ? porCompetencia : porCompetencia.slice(-6)).map((c) => ({
       mes: `${MESES[c.mes - 1]}/${String(c.ano).slice(2)}`,
@@ -85,6 +96,11 @@ export class DashboardService {
       deltaReforma: 0, // comparações da reforma não são persistidas (tela Reforma é sob demanda)
       competencia,
       impostoAPagar: { total: impostoTotal },
+      saidas: {
+        quantidade: saidaAgg._count ?? 0,
+        faturamento: Number(saidaAgg._sum.valorTotal ?? 0),
+        icmsDebito: Number(saidaIcms._sum.vIcms ?? 0),
+      },
       serie,
       documentos,
       anosDisponiveis,
