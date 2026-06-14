@@ -31,8 +31,20 @@ export interface BlingNotification {
   data?: { id?: number | string };
 }
 
-/** Extrai (evento, invoiceId) de uma notificação de NF-e; null se não for de NF. */
-export function parseEventoNfe(raw: string): { event: string; invoiceId: number | string } | null {
+export interface EventoNotaBling {
+  event: string;
+  invoiceId: number | string;
+  modelo: 'nfe' | 'nfce'; // nfe = NF-e mod 55 (venda E devolução; tpNF decide); nfce = NFC-e mod 65
+}
+
+/**
+ * Extrai (evento, id, modelo) de uma notificação de nota fiscal do Bling v3.
+ * O campo `event` é "<recurso>.<ação>" — recurso `invoice` = NF-e (mod 55, cobre
+ * venda e devolução: o tpNF do XML decide entrada/saída) e `consumer_invoice` =
+ * NFC-e (mod 65). Retorna null se não for evento de nota.
+ * (NFC-e é testada ANTES de NF-e porque "consumer_invoice" contém "invoice".)
+ */
+export function parseEventoNota(raw: string): EventoNotaBling | null {
   let note: BlingNotification;
   try {
     note = JSON.parse(raw) as BlingNotification;
@@ -41,6 +53,12 @@ export function parseEventoNfe(raw: string): { event: string; invoiceId: number 
   }
   const event = String(note?.event ?? '');
   const invoiceId = note?.data?.id;
-  if (!/^(invoice|nfe|nota)/i.test(event) || invoiceId == null) return null;
-  return { event, invoiceId };
+  if (invoiceId == null) return null;
+  if (/^consumer_invoice\b/i.test(event) || /nfce/i.test(event)) {
+    return { event, invoiceId, modelo: 'nfce' };
+  }
+  if (/^(invoice|nfe|nota)\b/i.test(event)) {
+    return { event, invoiceId, modelo: 'nfe' };
+  }
+  return null;
 }

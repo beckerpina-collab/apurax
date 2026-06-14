@@ -6,7 +6,7 @@ import {
   precisaRenovar,
   rotuloSituacao,
 } from './bling.client';
-import { assinaturaValida, hmacHex, parseEventoNfe } from './bling.webhook';
+import { assinaturaValida, hmacHex, parseEventoNota } from './bling.webhook';
 import { FilaSequencial } from './fila-sequencial';
 import { RateLimiter } from './rate-limiter';
 
@@ -80,10 +80,24 @@ describe('Bling webhook (assinatura + parse)', () => {
     expect(assinaturaValida(secret, raw, undefined)).toBe(false);
   });
 
-  it('extrai o invoiceId de eventos de NF-e e ignora os demais', () => {
-    expect(parseEventoNfe(raw)).toEqual({ event: 'invoice.updated', invoiceId: 12345 });
-    expect(parseEventoNfe(JSON.stringify({ event: 'product.updated', data: { id: 1 } }))).toBeNull();
-    expect(parseEventoNfe('não-json')).toBeNull();
+  it('classifica eventos de NF-e (mod 55) e NFC-e (mod 65) e ignora os demais', () => {
+    // NF-e (cobre venda E devolução — o tpNF do XML decide entrada/saída)
+    expect(parseEventoNota(raw)).toEqual({ event: 'invoice.updated', invoiceId: 12345, modelo: 'nfe' });
+    expect(parseEventoNota(JSON.stringify({ event: 'invoice.created', data: { id: 7 } }))).toEqual({
+      event: 'invoice.created',
+      invoiceId: 7,
+      modelo: 'nfe',
+    });
+    // NFC-e — recurso "consumer_invoice" (contém "invoice", mas é classificada como nfce)
+    expect(parseEventoNota(JSON.stringify({ event: 'consumer_invoice.created', data: { id: 88 } }))).toEqual({
+      event: 'consumer_invoice.created',
+      invoiceId: 88,
+      modelo: 'nfce',
+    });
+    // não-nota e lixo → null
+    expect(parseEventoNota(JSON.stringify({ event: 'product.updated', data: { id: 1 } }))).toBeNull();
+    expect(parseEventoNota(JSON.stringify({ event: 'invoice.created' }))).toBeNull(); // sem data.id
+    expect(parseEventoNota('não-json')).toBeNull();
   });
 });
 

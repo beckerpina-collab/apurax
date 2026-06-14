@@ -18,7 +18,7 @@ import {
   listInvoices,
   mapInvoiceToSaida,
 } from './bling.client';
-import { assinaturaValida, parseEventoNfe } from './bling.webhook';
+import { assinaturaValida, parseEventoNota } from './bling.webhook';
 import { BlingFilaService } from './bling-fila.service';
 
 const PAGE = 100;
@@ -307,9 +307,11 @@ export class BlingService {
     if (!assinaturaValida(secret, raw, signature)) {
       throw new UnauthorizedException('Assinatura do webhook inválida.');
     }
-    const ev = parseEventoNfe(raw);
+    const ev = parseEventoNota(raw);
     if (ev) {
-      await this.fila.enfileirar(String(ev.invoiceId));
+      // NFC-e vai prefixada ("nfce-<id>") p/ processarInvoice baixar do endpoint certo.
+      const ref = ev.modelo === 'nfce' ? `nfce-${ev.invoiceId}` : String(ev.invoiceId);
+      await this.fila.enfileirar(ref);
     }
     return { ok: true };
   }
