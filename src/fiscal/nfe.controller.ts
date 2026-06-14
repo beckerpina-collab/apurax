@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import type { Response } from 'express';
 import { parseCompetencia } from '../common/competencia';
 import { CurrentUser, UsuarioAutenticado } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -25,5 +26,14 @@ export class NfeController {
   @Get('documentos/:id')
   detalhe(@Param('id', ParseUUIDPipe) id: string) {
     return this.nfe.detalhe(id);
+  }
+
+  /** Download do XML bruto (valor legal) da NF-e/CT-e. */
+  @Get('documentos/:id/xml')
+  async baixarXml(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { xml, nomeArquivo } = await this.nfe.baixarXml(id);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+    res.send(xml);
   }
 }

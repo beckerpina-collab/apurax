@@ -55,6 +55,7 @@ export class NfeService {
         destinatarioCnpj: nfe.destinatarioCnpj,
         destinatarioNome: nfe.destinatarioNome,
         valorTotal: nfe.valorTotal,
+        xml, // XML bruto p/ download (valor legal)
         status: 'PROCESSADO',
         itens: {
           create: nfe.itens.map((it) => ({
@@ -193,6 +194,7 @@ export class NfeService {
         destinatarioCnpj: nfe.destinatarioCnpj,
         destinatarioNome: nfe.destinatarioNome,
         valorTotal: nfe.valorTotal,
+        xml, // XML bruto p/ download (valor legal)
         status: 'PROCESSADO',
         itens: {
           create: nfe.itens.map((it) => ({
@@ -324,5 +326,22 @@ export class NfeService {
       throw new NotFoundException('Documento não encontrado.');
     }
     return doc;
+  }
+
+  /** XML bruto (valor legal) p/ download. select explícito do xml (vence o omit global). */
+  async baixarXml(id: string): Promise<{ xml: string; nomeArquivo: string }> {
+    const doc = await this.prisma.scoped.documentoFiscal.findFirst({
+      where: { id },
+      select: { xml: true, chaveAcesso: true },
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento não encontrado.');
+    }
+    if (!doc.xml) {
+      throw new NotFoundException(
+        'XML não disponível (documento importado antes do armazenamento do XML — reimporte/recapture para baixar).',
+      );
+    }
+    return { xml: doc.xml, nomeArquivo: `${doc.chaveAcesso}.xml` };
   }
 }

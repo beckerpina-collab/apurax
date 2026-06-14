@@ -57,6 +57,7 @@ export class CteService {
         destinatarioCnpj: cte.tomadorCnpj ?? '',
         tomadorCnpj: cte.tomadorCnpj,
         valorTotal: cte.vTPrest,
+        xml, // XML bruto p/ download (valor legal)
         status: 'PROCESSADO',
         itens: {
           create: [

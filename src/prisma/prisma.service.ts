@@ -16,7 +16,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   constructor(private readonly cls: ClsService) {
-    super();
+    // omit global: o XML bruto (grande) NUNCA é carregado nas consultas normais
+    // (listagens, apurações). Só é lido quando o download faz select explícito.
+    super({ omit: { documentoFiscal: { xml: true } } });
   }
 
   async onModuleInit(): Promise<void> {
@@ -31,7 +33,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * sem risco — NUNCA dropa nada. Mudanças destrutivas exigem migration real.
    */
   private async aplicarMigracoesLeves(): Promise<void> {
-    const ddl = ['ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "destinatarioNome" TEXT'];
+    const ddl = [
+      'ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "destinatarioNome" TEXT',
+      'ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "xml" TEXT',
+    ];
     for (const sql of ddl) {
       try {
         await this.$executeRawUnsafe(sql);

@@ -14,7 +14,8 @@
 // ============================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {
@@ -163,6 +164,7 @@ model DocumentoFiscal {
   tomadorCnpj     String? // CT-e (modelo 57): CNPJ do tomador do serviço (toma3/toma4)
   valorTotal      Decimal         @db.Decimal(18, 2)
   xmlPath         String? // caminho no storage do XML bruto (valor legal)
+  xml             String? // XML bruto (valor legal) p/ download. omit global no PrismaService — nunca carregado nas listagens.
   status          StatusDocumento @default(IMPORTADO)
   criadoEm        DateTime        @default(now())
 

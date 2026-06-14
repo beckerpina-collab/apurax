@@ -192,6 +192,39 @@ export const api = {
     return http<{ documentos: typeof DOCUMENTOS; resumoCst: typeof RESUMO_CST_DEMO }>(`/fiscal/documentos${sufixo}`);
   },
 
+  /** Baixa o XML bruto de um documento (NF-e/CT-e) — fetch autenticado + download no navegador. */
+  async baixarDocumentoXml(id: string, chave?: string): Promise<void> {
+    let blob: Blob;
+    let nome = `${chave || id}.xml`;
+    if (DEMO) {
+      await delay(300);
+      blob = new Blob(
+        [`<?xml version="1.0" encoding="UTF-8"?>\n<nfeProc><!-- XML de demonstração (${chave || id}) --></nfeProc>`],
+        { type: 'application/xml' },
+      );
+    } else {
+      const res = await fetch(`${API_URL}/fiscal/documentos/${id}/xml`, {
+        headers: { ...(getToken() ? { authorization: `Bearer ${getToken()}` } : {}) },
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Falha ao baixar o XML (${res.status}).`);
+      }
+      const cd = res.headers.get('content-disposition');
+      const m = cd?.match(/filename="?([^"]+)"?/);
+      if (m) nome = m[1];
+      blob = await res.blob();
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   async apuracoes(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();

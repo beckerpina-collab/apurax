@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX } from 'lucide-react';
+import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import ResumoCst, { type ResumoCstData } from '@/components/ResumoCst';
 import StatCard from '@/components/StatCard';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -57,6 +59,18 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   // Filtro de período igual ao Painel: 'todos' = sem filtro. Default = ano e mês atuais.
   const [ano, setAno] = useState<string>(String(ANO_ATUAL));
   const [mes, setMes] = useState<string>(String(Number(COMP_ATUAL.slice(5, 7))));
+  const [baixando, setBaixando] = useState<string | null>(null);
+
+  async function baixarXml(d: Documento) {
+    setBaixando(d.id);
+    try {
+      await api.baixarDocumentoXml(d.id, d.chaveAcesso);
+    } catch (e) {
+      toast.error((e as Error).message || 'Não foi possível baixar o XML.');
+    } finally {
+      setBaixando(null);
+    }
+  }
 
   // ao trocar de aba (entrada/saída), o filtro de modelo volta p/ "Todos"
   useEffect(() => {
@@ -228,6 +242,7 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableHead className="text-right">ICMS</TableHead>
                     <TableHead className="text-right">PIS</TableHead>
                     <TableHead className="text-right">COFINS</TableHead>
+                    <TableHead className="text-right">XML</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -260,6 +275,22 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                       <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.pis ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.cofins ?? 0)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          title="Baixar XML"
+                          disabled={baixando === d.id}
+                          onClick={() => baixarXml(d)}
+                        >
+                          {baixando === d.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
