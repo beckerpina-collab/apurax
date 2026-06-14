@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, RegraCredito, RegimeTributario, Tributo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ehDevolucaoVenda } from './devolucao';
 import {
   CondicaoRegra,
   CreditoCbsIbs,
@@ -53,7 +54,47 @@ export class MotorCreditoService {
 
   /** Apura ICMS, PIS e COFINS de um item, dado o regime e as regras vigentes. */
   avaliarItem(item: ItemApuravel, regime: RegimeTributario, regras: RegraCredito[]): ResultadoCredito[] {
-    return TRIBUTOS_PADRAO.map((tributo) => this.avaliarTributo(tributo, item, regime, regras));
+    const resultados = TRIBUTOS_PADRAO.map((tributo) => this.avaliarTributo(tributo, item, regime, regras));
+    // Devolução de venda (entrada): o imposto destacado é ESTORNO da venda, não
+    // aquisição. Os VALORES já coincidem (vICMS/vPIS/vCOFINS destacados); aqui só
+    // enriquecemos a base legal e os alertas — inclusive o do regime cumulativo,
+    // onde a devolução NÃO é crédito e sim dedução da base de cálculo.
+    if (!ehDevolucaoVenda(item.cfop)) return resultados;
+    return resultados.map((r) => this.refinarDevolucao(r, item, regime));
+  }
+
+  /** Ajusta um ResultadoCredito quando o item é devolução de venda (não muda valor/permissão). */
+  private refinarDevolucao(r: ResultadoCredito, item: ItemApuravel, regime: RegimeTributario): ResultadoCredito {
+    const cfop = (item.cfop ?? '').replace(/\D/g, '');
+    const alertas = [...r.alertas];
+
+    if (r.tributo === Tributo.ICMS) {
+      if (r.creditoPermitido) {
+        alertas.push(
+          `Devolução de venda (CFOP ${cfop}): o crédito de ICMS é o ESTORNO do débito destacado na venda original (não-cumulatividade — LC 87/96). Vincular à NF-e de venda devolvida.`,
+        );
+        return { ...r, baseLegal: `Devolução de venda — crédito = estorno do ICMS da venda. ${r.baseLegal}`, alertas };
+      }
+      alertas.push(`Devolução de venda (CFOP ${cfop}) sem ICMS creditável pelo CST — revisar o destaque na nota de devolução.`);
+      return { ...r, alertas };
+    }
+
+    // PIS/COFINS
+    if (regime === RegimeTributario.LUCRO_REAL) {
+      if (r.creditoPermitido) {
+        alertas.push(
+          `Devolução de venda (CFOP ${cfop}): crédito de ${r.tributo} sobre mercadoria devolvida cuja receita foi tributada (Leis 10.637/2002 e 10.833/2003, art. 3º).`,
+        );
+        return { ...r, baseLegal: `Devolução de venda — ${r.baseLegal}`, alertas };
+      }
+      return { ...r, alertas };
+    }
+
+    // Regime cumulativo (Lucro Presumido) / Simples: devolução NÃO é crédito.
+    alertas.push(
+      `Devolução de venda (CFOP ${cfop}) em regime cumulativo: DEDUZIR o valor da base de cálculo de PIS/COFINS da receita do período — não é crédito (Lei 9.718/98, art. 3º).`,
+    );
+    return { ...r, alertas };
   }
 
   private avaliarTributo(

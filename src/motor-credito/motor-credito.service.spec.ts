@@ -101,6 +101,49 @@ describe('MotorCreditoService.avaliarItem', () => {
     expect(icms.regraCodigo).toBe('R-ICMS-CRED-SN');
   });
 
+  it('devolução de venda (CFOP 1202) no Lucro Real: estorno de ICMS + crédito de PIS/COFINS, com base legal e alertas próprios', () => {
+    const item: ItemApuravel = {
+      cfop: '1202',
+      cstIcms: '00',
+      vIcms: '100.00',
+      cstPis: '01',
+      vPis: '16.50',
+      cstCofins: '01',
+      vCofins: '76.00',
+    };
+    const r = motor.avaliarItem(item, RegimeTributario.LUCRO_REAL, REGRAS);
+
+    const icms = pega(r, Tributo.ICMS);
+    expect(icms.creditoPermitido).toBe(true);
+    expect(icms.valorCredito.toString()).toBe('100'); // valor inalterado (estorno = ICMS destacado)
+    expect(icms.baseLegal).toContain('Devolução de venda');
+    expect(icms.alertas.join(' ')).toMatch(/estorno/i);
+
+    const pis = pega(r, Tributo.PIS);
+    expect(pis.creditoPermitido).toBe(true);
+    expect(pis.valorCredito.toString()).toBe('16.5');
+    expect(pis.baseLegal).toContain('Devolução de venda');
+    expect(pis.alertas.join(' ')).toContain('10.833'); // a Lei está no alerta de devolução
+  });
+
+  it('devolução de venda no Lucro Presumido: alerta para DEDUZIR da base (não é crédito de PIS/COFINS)', () => {
+    const item: ItemApuravel = { cfop: '1202', cstIcms: '00', vIcms: '100', cstPis: '01', vPis: '16.50', cstCofins: '01', vCofins: '76' };
+    const r = motor.avaliarItem(item, RegimeTributario.LUCRO_PRESUMIDO, REGRAS);
+
+    const pis = pega(r, Tributo.PIS);
+    expect(pis.creditoPermitido).toBe(false); // cumulativo não credita
+    expect(pis.alertas.join(' ')).toMatch(/DEDUZIR|base de cálculo/);
+    // ICMS continua creditável (estorno) no Presumido
+    expect(pega(r, Tributo.ICMS).creditoPermitido).toBe(true);
+  });
+
+  it('CFOP de compra comum (1102) não dispara o tratamento de devolução', () => {
+    const item: ItemApuravel = { cfop: '1102', cstIcms: '00', vIcms: '100' };
+    const icms = pega(motor.avaliarItem(item, RegimeTributario.LUCRO_REAL, REGRAS), Tributo.ICMS);
+    expect(icms.baseLegal).not.toContain('Devolução');
+    expect(icms.alertas.join(' ')).not.toContain('estorno');
+  });
+
   it('marca CST não mapeado para análise manual (fail-safe)', () => {
     const item: ItemApuravel = { cstIcms: '99' };
     const icms = pega(motor.avaliarItem(item, RegimeTributario.LUCRO_REAL, REGRAS), Tributo.ICMS);

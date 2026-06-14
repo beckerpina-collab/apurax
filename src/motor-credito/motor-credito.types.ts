@@ -21,6 +21,7 @@ export interface CondicaoRegra {
 
 /** Subconjunto do item necessário para apurar o crédito. */
 export interface ItemApuravel {
+  cfop?: string | null; // usado p/ detectar devolução de venda (estorno, não aquisição)
   cstIcms?: string | null;
   csosn?: string | null;
   vIcms?: Prisma.Decimal | string | number | null;
