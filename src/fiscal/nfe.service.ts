@@ -19,8 +19,9 @@ export class NfeService {
     private readonly parser: NfeParserService,
   ) {}
 
-  /** Importa uma NF-e de entrada, calcula os créditos (motor) e registra a auditoria. */
-  async importar(empresaId: string, xml: string, usuarioId: string) {
+  /** Importa uma NF-e de entrada, calcula os créditos (motor) e registra a auditoria.
+   *  usuarioId é opcional — o fluxo do Bling (webhook/varredura) não tem usuário logado. */
+  async importar(empresaId: string, xml: string, usuarioId?: string) {
     const nfe = this.parser.parse(xml);
 
     const empresa = await this.prisma.scoped.empresa.findFirst({ where: { id: empresaId } });
@@ -132,7 +133,7 @@ export class NfeService {
       tipo: 'NFE_IMPORTADA_E_APURADA',
       entidade: 'DocumentoFiscal',
       entidadeId: doc.id,
-      usuarioId,
+      ...(usuarioId ? { usuarioId } : {}),
       dados: {
         chaveAcesso: doc.chaveAcesso,
         totalItens: doc.itens.length,
@@ -255,6 +256,27 @@ export class NfeService {
     });
 
     return { documentoId: doc.id, chaveAcesso: doc.chaveAcesso, totalItens: doc.itens.length, tipoOperacao: 'SAIDA', alertas };
+  }
+
+  /**
+   * Importa uma NF-e vinda do Bling classificando pelo tpNF do XML:
+   *  - tpNF=1 (saída/venda) → importarSaida (gera débito);
+   *  - tpNF=0 (entrada — ex.: DEVOLUÇÃO de venda emitida pela empresa) → importar
+   *    (roda o motor de crédito, de modo que a devolução estorne imposto na apuração).
+   * Dedup por chave aqui (silenciosa) evita lançar/contar erro em re-entrega de webhook
+   * e evita duplicar com a captura SEFAZ. (CFOP de devolução tem regras próprias — o
+   * motor trata como crédito de entrada; refinar o tratamento da devolução é um passo futuro.)
+   */
+  async importarDoBling(empresaId: string, xml: string) {
+    const nfe = this.parser.parse(xml);
+    const existente = await this.prisma.scoped.documentoFiscal.findFirst({
+      where: { chaveAcesso: nfe.chaveAcesso },
+      select: { id: true, tipoOperacao: true },
+    });
+    if (existente) {
+      return { documentoId: existente.id, chaveAcesso: nfe.chaveAcesso, jaImportada: true, tipoOperacao: existente.tipoOperacao };
+    }
+    return nfe.tpNF === '0' ? this.importar(empresaId, xml) : this.importarSaida(empresaId, xml);
   }
 
   /**

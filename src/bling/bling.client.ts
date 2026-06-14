@@ -238,6 +238,7 @@ export interface NotaSaida {
   valor: number;
   chaveAcesso: string | null;
   situacao: string;
+  tipoOperacao: 'ENTRADA' | 'SAIDA'; // tipo no Bling (0=entrada/devolução, 1=saída/venda)
 }
 
 /** Mapeia uma NF do Bling para o formato exibido no front. Os impostos
@@ -252,5 +253,6 @@ export function mapInvoiceToSaida(nf: BlingInvoice): NotaSaida {
     valor: Number(nf.valorNota ?? 0),
     chaveAcesso: nf.chaveAcesso ?? null,
     situacao: rotuloSituacao(nf.situacao),
+    tipoOperacao: nf.tipo === 0 ? 'ENTRADA' : 'SAIDA',
   };
 }

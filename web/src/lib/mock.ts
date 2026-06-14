@@ -94,6 +94,7 @@ export interface NotaSaida {
   icms: number;
   pisCofins: number;
   situacao: string;
+  tipoOperacao: 'ENTRADA' | 'SAIDA';
 }
 
 export const EMPRESAS: Empresa[] = [
@@ -149,9 +150,9 @@ export const CURSORES: CursorDfe[] = [
 ];
 
 export const SAIDAS_BLING: NotaSaida[] = [
-  { id: 's1', numero: '1042', serie: '1', dataEmissao: '2026-02-04', destinatario: 'Cliente Varejo A', valor: 2400.0, icms: 432.0, pisCofins: 222.0, situacao: 'Autorizada' },
-  { id: 's2', numero: '1043', serie: '1', dataEmissao: '2026-02-09', destinatario: 'Cliente Atacado B', valor: 9800.0, icms: 1764.0, pisCofins: 906.5, situacao: 'Autorizada' },
-  { id: 's3', numero: '1044', serie: '1', dataEmissao: '2026-02-15', destinatario: 'Cliente Varejo C', valor: 5600.0, icms: 1008.0, pisCofins: 518.0, situacao: 'Autorizada' },
+  { id: 's1', numero: '1042', serie: '1', dataEmissao: '2026-02-04', destinatario: 'Cliente Varejo A', valor: 2400.0, icms: 432.0, pisCofins: 222.0, situacao: 'Autorizada', tipoOperacao: 'SAIDA' },
+  { id: 's2', numero: '1043', serie: '1', dataEmissao: '2026-02-09', destinatario: 'Cliente Atacado B', valor: 9800.0, icms: 1764.0, pisCofins: 906.5, situacao: 'Autorizada', tipoOperacao: 'SAIDA' },
+  { id: 's3', numero: '55', serie: '1', dataEmissao: '2026-02-15', destinatario: 'Cliente Varejo A (devolução)', valor: 600.0, icms: 108.0, pisCofins: 55.5, situacao: 'Autorizada', tipoOperacao: 'ENTRADA' },
 ];
 
 export function demoImportarNfe() {

@@ -111,7 +111,7 @@ export class BlingService {
     };
   }
 
-  /** Lista as NF-e de SAÍDA do período (pré-visualização; não baixa XML). */
+  /** Lista as NF-e do período — saída (venda) e entrada (devolução) (pré-visualização; não baixa XML). */
   async puxarSaidas(empresaId: string, dataInicial: string, dataFinal: string) {
     const access = await this.token.accessToken(this.prisma.tenantId, empresaId);
     const notas = await this.coletarSaidas(access, dataInicial, dataFinal, PREVIEW_MAX);
@@ -253,10 +253,11 @@ export class BlingService {
           return;
         }
         const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
+        // sem filtro de tipo: puxa SAÍDA (venda) E ENTRADA (ex.: devolução emitida pela
+        // empresa). A classificação ENTRADA/SAÍDA é feita no import pelo tpNF do XML.
         const lote = (await listInvoices(access, {
           pagina,
           limite: PAGE,
-          tipo: 1,
           dataEmissaoInicial: ini,
           dataEmissaoFinal: fim,
         })) as BlingInvoice[];
@@ -329,7 +330,7 @@ export class BlingService {
         await this.cls.run(async () => {
           this.cls.set('tenantId', cx.tenantId);
           try {
-            await this.nfe.importarSaida(cx.empresaId, xml);
+            await this.nfe.importarDoBling(cx.empresaId, xml);
             this.bumpVarredura(cx.tenantId, cx.empresaId, 'importadas');
           } catch (e) {
             this.bumpVarredura(cx.tenantId, cx.empresaId, 'errosImport');
@@ -416,7 +417,7 @@ export class BlingService {
 
   // ----- internos ------------------------------------------------------------
 
-  /** Coleta as NF de saída do período (paginado; o blingLimiter rege o ritmo). */
+  /** Coleta as NF do período — saída e entrada (paginado; o blingLimiter rege o ritmo). */
   private async coletarSaidas(
     access: string,
     dataInicial: string,
@@ -431,7 +432,6 @@ export class BlingService {
       const lote = (await listInvoices(access, {
         pagina,
         limite: PAGE,
-        tipo: 1,
         dataEmissaoInicial: ini,
         dataEmissaoFinal: fim,
       })) as BlingInvoice[];

@@ -47,6 +47,7 @@ interface NotaSaida {
   icms?: number;
   pisCofins?: number;
   situacao: string;
+  tipoOperacao?: 'ENTRADA' | 'SAIDA';
 }
 
 interface PuxarSaidasResp {
@@ -425,17 +426,18 @@ export default function Bling() {
           <Card>
             <CardHeader>
               <CardTitle>Notas listadas</CardTitle>
-              <CardDescription>NF-e de saída emitidas no Bling no período selecionado.</CardDescription>
+              <CardDescription>NF-e de saída (vendas) e de entrada (devoluções) do Bling no período.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Tipo</TableHead>
                       <TableHead>Número</TableHead>
                       <TableHead>Série</TableHead>
                       <TableHead>Data</TableHead>
-                      <TableHead>Destinatário</TableHead>
+                      <TableHead>Contraparte</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                       <TableHead>Situação</TableHead>
                     </TableRow>
@@ -443,8 +445,8 @@ export default function Bling() {
                   <TableBody>
                     {(resultado?.notas ?? []).length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                          Nenhuma nota de saída encontrada no período.
+                        <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                          Nenhuma nota encontrada no período.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -452,6 +454,11 @@ export default function Bling() {
                         .slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE)
                         .map((n) => (
                         <TableRow key={n.id}>
+                          <TableCell>
+                            <Badge variant={n.tipoOperacao === 'ENTRADA' ? 'outline' : 'secondary'}>
+                              {n.tipoOperacao === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="font-medium">{n.numero}</TableCell>
                           <TableCell>{n.serie}</TableCell>
                           <TableCell>{dataBR(n.dataEmissao)}</TableCell>
