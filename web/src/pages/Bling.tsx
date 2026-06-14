@@ -13,7 +13,14 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api, isDemo } from '@/lib/api';
 import { useEmpresa } from '@/lib/empresa-context';
-import { brl, dataBR, dataHoraBR } from '@/lib/format';
+import { brl, dataBR, dataHoraBR, mesAtualSP } from '@/lib/format';
+
+// Período pré-filtrado = mês atual no fuso de São Paulo (1º ao último dia).
+const COMP_ATUAL = mesAtualSP(); // 'YYYY-MM'
+const PRIMEIRO_DIA_MES = `${COMP_ATUAL}-01`;
+const ULTIMO_DIA_MES = `${COMP_ATUAL}-${String(
+  new Date(Number(COMP_ATUAL.slice(0, 4)), Number(COMP_ATUAL.slice(5, 7)), 0).getDate(),
+).padStart(2, '0')}`;
 
 interface Varredura {
   estado: 'varrendo' | 'concluida' | 'erro';
@@ -74,8 +81,8 @@ export default function Bling() {
   const [carregandoStatus, setCarregandoStatus] = useState(false);
   const [conectando, setConectando] = useState(false);
 
-  const [dataInicial, setDataInicial] = useState('2026-02-01');
-  const [dataFinal, setDataFinal] = useState('2026-02-28');
+  const [dataInicial, setDataInicial] = useState(PRIMEIRO_DIA_MES);
+  const [dataFinal, setDataFinal] = useState(ULTIMO_DIA_MES);
   const [puxando, setPuxando] = useState(false);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<PuxarSaidasResp | null>(null);
