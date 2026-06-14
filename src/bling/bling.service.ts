@@ -12,7 +12,9 @@ import {
   blingLimiter,
   buildBlingAuthUrl,
   exchangeBlingCode,
+  getConsumerInvoice,
   getInvoice,
+  listConsumerInvoices,
   listInvoices,
   mapInvoiceToSaida,
 } from './bling.client';
@@ -241,43 +243,51 @@ export class BlingService {
     };
     let encontradas = 0;
     let enfileiradas = 0;
-    let pagina = 0;
+    let paginas = 0;
+    let truncada = false;
     try {
       // parse de data DENTRO do try: data inválida lançaria, e a trava precisa cair.
       const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
       const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
-      for (pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
-        if (this.cancelamentos.has(chave)) {
-          atualizar({ estado: 'cancelada' });
-          this.logger.warn(`Bling varredura ${empresaId}: cancelada pelo usuário na página ${pagina}.`);
-          return;
+      // NF-e (mod 55) e NFC-e (mod 65) são ENDPOINTS SEPARADOS na v3. A ref enfileirada
+      // carrega o tipo ("nfce-<id>") p/ o processador baixar do endpoint certo. Tipo de
+      // operação (entrada/saída) é decidido no import pelo tpNF do XML.
+      const recursos: Array<{ listar: typeof listInvoices; ref: (id: number | string) => string }> = [
+        { listar: listInvoices, ref: (id) => String(id) },
+        { listar: listConsumerInvoices, ref: (id) => `nfce-${id}` },
+      ];
+      for (const rec of recursos) {
+        for (let pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
+          if (this.cancelamentos.has(chave)) {
+            atualizar({ estado: 'cancelada' });
+            this.logger.warn(`Bling varredura ${empresaId}: cancelada pelo usuário na página ${pagina}.`);
+            return;
+          }
+          const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
+          const lote = (await rec.listar(access, {
+            pagina,
+            limite: PAGE,
+            dataEmissaoInicial: ini,
+            dataEmissaoFinal: fim,
+          })) as BlingInvoice[];
+          if (!lote?.length) break;
+          for (const nf of lote) {
+            if (nf?.id == null) continue;
+            encontradas += 1;
+            if (await this.fila.enfileirar(rec.ref(nf.id))) enfileiradas += 1;
+          }
+          paginas += 1;
+          atualizar({ encontradas, enfileiradas, paginas });
+          if (lote.length < PAGE) break;
+          if (pagina === MAX_PAGINAS) truncada = true; // bateu no teto → pode haver mais
         }
-        const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
-        // sem filtro de tipo: puxa SAÍDA (venda) E ENTRADA (ex.: devolução emitida pela
-        // empresa). A classificação ENTRADA/SAÍDA é feita no import pelo tpNF do XML.
-        const lote = (await listInvoices(access, {
-          pagina,
-          limite: PAGE,
-          dataEmissaoInicial: ini,
-          dataEmissaoFinal: fim,
-        })) as BlingInvoice[];
-        if (!lote?.length) break;
-        for (const nf of lote) {
-          if (nf?.id == null) continue;
-          encontradas += 1;
-          if (await this.fila.enfileirar(String(nf.id))) enfileiradas += 1;
-        }
-        atualizar({ encontradas, enfileiradas, paginas: pagina });
-        if (lote.length < PAGE) break;
       }
-      // Se saiu pelo teto de páginas (não por um lote curto), pode haver MAIS notas.
-      const truncada = pagina > MAX_PAGINAS;
       await this.token
         .marcarSync(tenantId, empresaId)
         .catch((e) => this.logger.warn(`Bling marcarSync ${empresaId}: ${(e as Error).message}`));
       atualizar({ estado: 'concluida', encontradas, enfileiradas, truncada });
       this.logger.log(
-        `Bling varredura ${empresaId} (${dataInicial}..${dataFinal}): ${encontradas} encontrada(s), ${enfileiradas} nova(s) na fila${truncada ? ' [TRUNCADA no backstop]' : ''}.`,
+        `Bling varredura ${empresaId} (${dataInicial}..${dataFinal}): ${encontradas} encontrada(s) [NF-e + NFC-e], ${enfileiradas} nova(s) na fila${truncada ? ' [TRUNCADA no backstop]' : ''}.`,
       );
     } catch (e) {
       atualizar({ estado: 'erro', erro: (e as Error).message });
@@ -309,7 +319,12 @@ export class BlingService {
    * 404/403 = "não é desta conta" → tenta a próxima conexão. Qualquer outra
    * falha (429/5xx/rede) é LANÇADA para a fila re-tentar — antes, era descartada.
    */
-  private async processarInvoice(invoiceId: number | string): Promise<void> {
+  private async processarInvoice(ref: number | string): Promise<void> {
+    // ref pode vir prefixada: "nfce-<id>" (NFC-e mod 65) ou "<id>" puro (NF-e mod 55 —
+    // também é o formato que o webhook enfileira). Roteia p/ o endpoint certo do Bling.
+    const refStr = String(ref);
+    const ehNfce = refStr.startsWith('nfce-');
+    const invoiceId = ehNfce ? refStr.slice('nfce-'.length) : refStr;
     const conexoes = await this.token.listarAtivas();
     for (const cx of conexoes) {
       let access: string;
@@ -320,7 +335,7 @@ export class BlingService {
       }
       let nf: BlingInvoice;
       try {
-        nf = await getInvoice(access, invoiceId);
+        nf = ehNfce ? await getConsumerInvoice(access, invoiceId) : await getInvoice(access, invoiceId);
       } catch (e) {
         if (e instanceof BlingApiError && (e.status === 404 || e.status === 403)) continue; // não é desta conta
         throw e; // 429/5xx/rede → re-tenta via fila
@@ -427,18 +442,22 @@ export class BlingService {
     const ini = blingDate(new Date(`${dataInicial}T00:00:00`));
     const fim = blingDate(new Date(`${dataFinal}T23:59:59`));
     const notas: BlingInvoice[] = [];
-    let pagina = 1;
-    while (notas.length < max) {
-      const lote = (await listInvoices(access, {
-        pagina,
-        limite: PAGE,
-        dataEmissaoInicial: ini,
-        dataEmissaoFinal: fim,
-      })) as BlingInvoice[];
-      if (!lote?.length) break;
-      notas.push(...lote.filter((n) => n?.id != null));
-      if (lote.length < PAGE) break;
-      pagina += 1;
+    // NF-e (mod 55) e NFC-e (mod 65) — endpoints separados na v3.
+    for (const listar of [listInvoices, listConsumerInvoices]) {
+      let pagina = 1;
+      while (notas.length < max) {
+        const lote = (await listar(access, {
+          pagina,
+          limite: PAGE,
+          dataEmissaoInicial: ini,
+          dataEmissaoFinal: fim,
+        })) as BlingInvoice[];
+        if (!lote?.length) break;
+        notas.push(...lote.filter((n) => n?.id != null));
+        if (lote.length < PAGE) break;
+        pagina += 1;
+      }
+      if (notas.length >= max) break;
     }
     return notas.slice(0, max);
   }

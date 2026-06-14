@@ -26,7 +26,7 @@ export interface Apuracao {
 export interface DocumentoEntrada {
   id: string;
   chaveAcesso: string;
-  modelo: 'NF-e' | 'CT-e' | 'NFS-e';
+  modelo: 'NF-e' | 'NFC-e' | 'CT-e' | 'NFS-e';
   emitente: string;
   cnpjEmitente: string;
   dataEmissao: string;
@@ -118,6 +118,7 @@ export const DOCUMENTOS: DocumentoEntrada[] = [
   { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', numero: '7', serie: '1', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, bcIcms: 0, icms: 0, pis: 49.5, cofins: 228.0, cbs: 27.0, ibs: 3.0, origem: 'XML', tipoOperacao: 'ENTRADA' },
   { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', numero: '1042', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Varejo A', cnpjDestinatario: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 2400.0, icms: 432.0, pis: 39.6, cofins: 182.4, cbs: 21.6, ibs: 2.4, origem: 'XML', tipoOperacao: 'SAIDA' },
   { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', numero: '1043', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Atacado B', cnpjDestinatario: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 9800.0, icms: 1764.0, pis: 161.7, cofins: 744.8, cbs: 88.2, ibs: 9.8, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd7', chaveAcesso: '35260211111111000111650010000088410000000209', modelo: 'NFC-e', numero: '8841', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Consumidor não identificado', cnpjDestinatario: '', dataEmissao: '2026-02-20', valor: 350.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 350.0, icms: 63.0, pis: 5.78, cofins: 26.6, cbs: 3.15, ibs: 0.35, origem: 'XML', tipoOperacao: 'SAIDA' },
 ];
 
 export const DASHBOARD = {

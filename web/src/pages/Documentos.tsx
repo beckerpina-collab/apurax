@@ -17,7 +17,7 @@ import { brl, cnpjMask, dataBR, mesAtualSP } from '@/lib/format';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
-type Modelo = 'NF-e' | 'CT-e' | 'NFS-e';
+type Modelo = 'NF-e' | 'NFC-e' | 'CT-e' | 'NFS-e';
 type TipoOperacao = 'ENTRADA' | 'SAIDA';
 
 interface Documento {
@@ -47,7 +47,7 @@ type Filtro = 'Todos' | Modelo;
 
 // Entrada aceita NF-e/CT-e/NFS-e; saída, na prática, NF-e.
 const FILTROS_ENTRADA: Filtro[] = ['Todos', 'NF-e', 'CT-e', 'NFS-e'];
-const FILTROS_SAIDA: Filtro[] = ['Todos', 'NF-e'];
+const FILTROS_SAIDA: Filtro[] = ['Todos', 'NF-e', 'NFC-e'];
 
 const COMP_ATUAL = mesAtualSP(); // 'YYYY-MM' no fuso de São Paulo
 const ANO_ATUAL = Number(COMP_ATUAL.slice(0, 4));

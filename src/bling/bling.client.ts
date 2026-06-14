@@ -151,9 +151,30 @@ export function listInvoices(
   return blingGet<BlingInvoice[]>('/nfe', accessToken, q);
 }
 
-/** Detalhe completo de uma NF (chave, xml, links). */
+/** Detalhe completo de uma NF-e (chave, xml, links). */
 export function getInvoice(accessToken: string, id: number | string) {
   return blingGet<BlingInvoice>(`/nfe/${id}`, accessToken);
+}
+
+/** Lista NFC-e (modelo 65) — endpoint SEPARADO da NF-e na API v3 do Bling. */
+export function listConsumerInvoices(
+  accessToken: string,
+  params: {
+    pagina?: number;
+    limite?: number;
+    situacao?: number;
+    dataEmissaoInicial?: string;
+    dataEmissaoFinal?: string;
+  },
+) {
+  const q: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) q[k] = v as string | number;
+  return blingGet<BlingInvoice[]>('/nfce', accessToken, q);
+}
+
+/** Detalhe completo de uma NFC-e (chave, xml, links). */
+export function getConsumerInvoice(accessToken: string, id: number | string) {
+  return blingGet<BlingInvoice>(`/nfce/${id}`, accessToken);
 }
 
 /** Produtos do cadastro (NCM/CEST/origem). situacao 'A' = ativos. */
