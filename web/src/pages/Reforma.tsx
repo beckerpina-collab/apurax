@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeftRight,
   RefreshCw,
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import TablePagination, { PAGE_SIZE } from '@/components/TablePagination';
 
 import { api } from '@/lib/api';
 import { brl, pct } from '@/lib/format';
@@ -56,6 +57,11 @@ export default function Reforma() {
   const [xml, setXml] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [res, setRes] = useState<ResultadoReforma | null>(null);
+  const [pagina, setPagina] = useState(1);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [res]);
 
   async function comparar() {
     if (!empresaId) {
@@ -191,17 +197,20 @@ export default function Reforma() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {res.itens.map((it, idx) => (
-                    <TableRow key={`${it.item}-${idx}`}>
-                      <TableCell className="font-medium">{it.item}</TableCell>
-                      <TableCell className="text-right tabular-nums">{brl(it.creditoLegado)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{brl(it.creditoNovoPotencial)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{brl(it.deltaPotencial)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{pct(it.pctGanho)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {res.itens
+                    .slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE)
+                    .map((it, idx) => (
+                      <TableRow key={`${it.item}-${idx}`}>
+                        <TableCell className="font-medium">{it.item}</TableCell>
+                        <TableCell className="text-right tabular-nums">{brl(it.creditoLegado)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{brl(it.creditoNovoPotencial)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{brl(it.deltaPotencial)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{pct(it.pctGanho)}</TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
+              <TablePagination page={pagina} total={res.itens.length} onPageChange={setPagina} />
 
               {res.itens.some((it) => it.alertas && it.alertas.length > 0) && (
                 <div className="space-y-3">

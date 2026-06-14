@@ -16,15 +16,15 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
-  { to: '/captura', label: 'Captura SEFAZ (Entrada)', icon: DownloadCloud },
   { to: '/documentos', label: 'Documentos de Entrada', icon: FileDown },
   { to: '/documentos-saida', label: 'Documentos de Saída', icon: FileUp },
-  { to: '/importar', label: 'Importar XML', icon: Upload },
   { to: '/apuracoes', label: 'Apurações', icon: Calculator },
+  { to: '/captura', label: 'Captura SEFAZ (Entrada)', icon: DownloadCloud },
   { to: '/bling', label: 'Importar Saída (Bling)', icon: Plug },
+  { to: '/importar', label: 'Importar XML', icon: Upload },
   { to: '/validador', label: 'Validador NCM', icon: BadgeCheck },
   { to: '/reforma', label: 'Reforma CBS/IBS', icon: ArrowLeftRight },
-  { to: '/configuracao', label: 'Configuração', icon: Settings },
+  { to: '/configuracao', label: 'Configurações', icon: Settings },
 ];
 
 export default function Sidebar() {

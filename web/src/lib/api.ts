@@ -54,7 +54,7 @@ export interface RegistrarPayload {
 }
 
 export type ModeloDoc = 'nfe' | 'cte' | 'nfse';
-export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss';
+export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss' | 'cbs' | 'ibs';
 
 // Renovação de token compartilhada: várias chamadas que tomem 401 ao mesmo
 // tempo disparam UM único /auth/refresh e aguardam o mesmo resultado.

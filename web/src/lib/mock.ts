@@ -43,6 +43,8 @@ export interface DocumentoEntrada {
   icms?: number;
   pis?: number;
   cofins?: number;
+  cbs?: number;
+  ibs?: number;
 }
 
 export interface LinhaCstDemo {
@@ -109,12 +111,12 @@ export const APURACOES: Apuracao[] = [
 ];
 
 export const DOCUMENTOS: DocumentoEntrada[] = [
-  { id: 'd1', chaveAcesso: '35260211111111000111550010000000011000000017', modelo: 'NF-e', numero: '1', serie: '1', emitente: 'Aço Forte Distribuidora', cnpjEmitente: '33444555000166', dataEmissao: '2026-02-03', valor: 12500.0, creditoIcms: 1500.0, creditoPisCofins: 1156.25, bcIcms: 12500.0, icms: 1500.0, pis: 206.25, cofins: 950.0, origem: 'SEFAZ', tipoOperacao: 'ENTRADA' },
-  { id: 'd2', chaveAcesso: '35260222333444000155570010000000051000000098', modelo: 'CT-e', numero: '5', serie: '1', emitente: 'TransLog Fretes SA', cnpjEmitente: '44555666000177', dataEmissao: '2026-02-05', valor: 1800.0, creditoIcms: 216.0, creditoPisCofins: 0, bcIcms: 1800.0, icms: 216.0, pis: 0, cofins: 0, origem: 'SEFAZ', tipoOperacao: 'ENTRADA' },
-  { id: 'd3', chaveAcesso: '35260288999000000122550010000000021000000044', modelo: 'NF-e', numero: '2', serie: '1', emitente: 'Insumos Brasil Ltda', cnpjEmitente: '55666777000188', dataEmissao: '2026-02-11', valor: 7400.0, creditoIcms: 888.0, creditoPisCofins: 684.5, bcIcms: 7400.0, icms: 888.0, pis: 122.1, cofins: 562.4, origem: 'XML', tipoOperacao: 'ENTRADA' },
-  { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', numero: '7', serie: '1', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, bcIcms: 0, icms: 0, pis: 49.5, cofins: 228.0, origem: 'XML', tipoOperacao: 'ENTRADA' },
-  { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', numero: '1042', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Varejo A', cnpjDestinatario: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 2400.0, icms: 432.0, pis: 39.6, cofins: 182.4, origem: 'XML', tipoOperacao: 'SAIDA' },
-  { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', numero: '1043', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Atacado B', cnpjDestinatario: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 9800.0, icms: 1764.0, pis: 161.7, cofins: 744.8, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd1', chaveAcesso: '35260211111111000111550010000000011000000017', modelo: 'NF-e', numero: '1', serie: '1', emitente: 'Aço Forte Distribuidora', cnpjEmitente: '33444555000166', dataEmissao: '2026-02-03', valor: 12500.0, creditoIcms: 1500.0, creditoPisCofins: 1156.25, bcIcms: 12500.0, icms: 1500.0, pis: 206.25, cofins: 950.0, cbs: 112.5, ibs: 12.5, origem: 'SEFAZ', tipoOperacao: 'ENTRADA' },
+  { id: 'd2', chaveAcesso: '35260222333444000155570010000000051000000098', modelo: 'CT-e', numero: '5', serie: '1', emitente: 'TransLog Fretes SA', cnpjEmitente: '44555666000177', dataEmissao: '2026-02-05', valor: 1800.0, creditoIcms: 216.0, creditoPisCofins: 0, bcIcms: 1800.0, icms: 216.0, pis: 0, cofins: 0, cbs: 16.2, ibs: 1.8, origem: 'SEFAZ', tipoOperacao: 'ENTRADA' },
+  { id: 'd3', chaveAcesso: '35260288999000000122550010000000021000000044', modelo: 'NF-e', numero: '2', serie: '1', emitente: 'Insumos Brasil Ltda', cnpjEmitente: '55666777000188', dataEmissao: '2026-02-11', valor: 7400.0, creditoIcms: 888.0, creditoPisCofins: 684.5, bcIcms: 7400.0, icms: 888.0, pis: 122.1, cofins: 562.4, cbs: 66.6, ibs: 7.4, origem: 'XML', tipoOperacao: 'ENTRADA' },
+  { id: 'd4', chaveAcesso: '35260277000111000199500010000000071000000122', modelo: 'NFS-e', numero: '7', serie: '1', emitente: 'Consultoria Tributária ME', cnpjEmitente: '66777888000199', dataEmissao: '2026-02-18', valor: 3000.0, creditoIcms: 0, creditoPisCofins: 277.5, bcIcms: 0, icms: 0, pis: 49.5, cofins: 228.0, cbs: 27.0, ibs: 3.0, origem: 'XML', tipoOperacao: 'ENTRADA' },
+  { id: 'd5', chaveAcesso: '35260211111111000111550010000010421000000201', modelo: 'NF-e', numero: '1042', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Varejo A', cnpjDestinatario: '12345678000190', dataEmissao: '2026-02-04', valor: 2400.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 2400.0, icms: 432.0, pis: 39.6, cofins: 182.4, cbs: 21.6, ibs: 2.4, origem: 'XML', tipoOperacao: 'SAIDA' },
+  { id: 'd6', chaveAcesso: '35260211111111000111550010000010431000000219', modelo: 'NF-e', numero: '1043', serie: '1', emitente: 'Comércio Lucro Real Ltda', cnpjEmitente: '11111111000111', destinatario: 'Cliente Atacado B', cnpjDestinatario: '98765432000121', dataEmissao: '2026-02-09', valor: 9800.0, creditoIcms: 0, creditoPisCofins: 0, bcIcms: 9800.0, icms: 1764.0, pis: 161.7, cofins: 744.8, cbs: 88.2, ibs: 9.8, origem: 'XML', tipoOperacao: 'SAIDA' },
 ];
 
 export const DASHBOARD = {
@@ -126,7 +128,7 @@ export const DASHBOARD = {
   documentos: 4,
   anosDisponiveis: [2026, 2025],
   impostoAPagar: { ICMS: 4200.0, IPI: 0, 'PIS/COFINS': 3120.0, ISS: 150.0, total: 7470.0 },
-  saidas: { quantidade: 2, faturamento: 12200.0, icmsDebito: 2196.0, pisDebito: 201.3, cofinsDebito: 927.2 },
+  saidas: { quantidade: 2, faturamento: 12200.0, icmsDebito: 2196.0, pisDebito: 201.3, cofinsDebito: 927.2, cbsDebito: 109.8, ibsDebito: 12.2 },
   resumoCst: {
     pis: [{ cst: '01', descricao: 'Tributável — alíquota básica', itens: 2, base: 12200.0, valor: 201.3 }],
     cofins: [{ cst: '01', descricao: 'Tributável — alíquota básica', itens: 2, base: 12200.0, valor: 927.2 }],
@@ -156,7 +158,7 @@ export function demoImportarNfe() {
   return {
     chaveAcesso: '35260211111111000111550010000000011000000017',
     totalItens: 3,
-    creditoPotencial: { ICMS: '185.65', PIS: '19.80', COFINS: '91.20' },
+    creditoPotencial: { ICMS: '185.65', PIS: '19.80', COFINS: '91.20', CBS: '9.00', IBS: '1.00' },
     observacao: 'Créditos calculados pelo motor determinístico e gravados como SUGERIDO; pendem de homologação.',
   };
 }
@@ -177,6 +179,8 @@ export function demoApurarImposto(imposto: string, ano: number, mes: number): Ap
     IPI: { debito: 0, credito: 0, saldoCredorAnterior: 0, aRecolher: 0, saldoCredorTransportar: 0 },
     'PIS/COFINS': { debito: 4646.5, credito: 1526.5, saldoCredorAnterior: 0, aRecolher: 3120, saldoCredorTransportar: 0 },
     ISS: { debito: 150, credito: 0, saldoCredorAnterior: 0, aRecolher: 150, saldoCredorTransportar: 0 },
+    CBS: { debito: 109.8, credito: 222.3, saldoCredorAnterior: 0, aRecolher: 0, saldoCredorTransportar: 112.5 },
+    IBS: { debito: 12.2, credito: 24.7, saldoCredorAnterior: 0, aRecolher: 0, saldoCredorTransportar: 12.5 },
   };
   const base = tabela[imposto] ?? tabela.ICMS;
   return {

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { apurarIcms, somarDebitoIcms } from './apuracao-icms';
+import { somarCbsIbs, TributoReforma } from './apuracao-cbs-ibs';
 import { apurarIpi, somarCreditoIpi, somarDebitoIpi } from './apuracao-ipi';
 import { apurarPisCofins, ModalidadePisCofins, somarDebitoPisCofins, TributoPC } from './apuracao-pis-cofins';
 import { apurarIss, NotaServicoIss } from './apuracao-iss';
@@ -215,6 +216,48 @@ export class ApuracaoFiscalService {
       );
     }
     return linhas;
+  }
+
+  /**
+   * Apuração de CBS ou IBS por competência (reforma 2026, não-cumulativo):
+   * débito destacado nas saídas − crédito destacado nas entradas (± saldo credor).
+   * Reusa a mecânica do ICMS (apurarIcms). Vale para qualquer regime na transição.
+   */
+  async apurarCbsIbsCompetencia(empresaId: string, tributo: TributoReforma, ano: number, mes: number) {
+    const empresa = await this.prisma.scoped.empresa.findFirst({ where: { id: empresaId } });
+    if (!empresa) throw new NotFoundException('Empresa não encontrada para este tenant.');
+    const { inicio, fim } = this.periodo(ano, mes);
+    const sel = { itens: { select: { vCbs: true, vIbsUf: true, vIbsMun: true } } };
+    const saidas = await this.prisma.scoped.documentoFiscal.findMany({
+      where: { empresaId, tipoOperacao: 'SAIDA', dataEmissao: { gte: inicio, lt: fim } },
+      include: sel,
+    });
+    const entradas = await this.prisma.scoped.documentoFiscal.findMany({
+      where: { empresaId, tipoOperacao: 'ENTRADA', dataEmissao: { gte: inicio, lt: fim } },
+      include: sel,
+    });
+    const debito = somarCbsIbs(saidas.flatMap((d) => d.itens), tributo);
+    const credito = somarCbsIbs(entradas.flatMap((d) => d.itens), tributo);
+    const saldoCredorAnterior = await this.saldoCredorAnterior(empresaId, tributo, ano, mes);
+    const r = apurarIcms({ debito, credito, saldoCredorAnterior });
+    const ap = await this.upsertApuracao(empresaId, tributo, ano, mes, {
+      debito,
+      credito,
+      saldoCredorAnterior,
+      saldoApurado: r.saldoApurado,
+      aRecolher: r.aRecolher,
+      saldoCredorTransportar: r.saldoCredorTransportar,
+    });
+    await this.audit(`APURACAO_${tributo}`, ap.id, { ano, mes, aRecolher: r.aRecolher.toString() });
+    return [
+      this.linha(tributo, `${ano}-${String(mes).padStart(2, '0')}`, {
+        debito,
+        credito,
+        saldoCredorAnterior,
+        aRecolher: r.aRecolher,
+        saldoCredorTransportar: r.saldoCredorTransportar,
+      }),
+    ];
   }
 
   /** ISS (cumulativo) a partir de NFS-e fornecidas (ingestão de NFS-e é sub-etapa). */

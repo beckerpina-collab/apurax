@@ -81,6 +81,13 @@ export class NfeService {
             vCofins: it.vCofins ?? null,
             cstIpi: it.cstIpi ?? null,
             vIpi: it.vIpi ?? null,
+            cstIbsCbs: it.cstIbsCbs ?? null,
+            cClassTrib: it.cClassTrib ?? null,
+            vBcIbsCbs: it.vBcIbsCbs ?? null,
+            vCbs: it.vCbs ?? null,
+            vIbsUf: it.vIbsUf ?? null,
+            vIbsMun: it.vIbsMun ?? null,
+            vIbs: it.vIbs ?? null,
           })),
         },
       },
@@ -138,6 +145,10 @@ export class NfeService {
       },
     });
 
+    // CBS/IBS destacados na entrada = crédito disponível na reforma (não-cumulativo, crédito amplo).
+    const cbsDestacado = nfe.itens.reduce((s, it) => s + Number(it.vCbs ?? 0), 0);
+    const ibsDestacado = nfe.itens.reduce((s, it) => s + Number(it.vIbsUf ?? 0) + Number(it.vIbsMun ?? 0), 0);
+
     return {
       documentoId: doc.id,
       chaveAcesso: doc.chaveAcesso,
@@ -147,6 +158,8 @@ export class NfeService {
         ICMS: totais.ICMS.toFixed(2),
         PIS: totais.PIS.toFixed(2),
         COFINS: totais.COFINS.toFixed(2),
+        CBS: cbsDestacado.toFixed(2),
+        IBS: ibsDestacado.toFixed(2),
       },
       alertas: alertasDoc,
       observacao:
@@ -220,6 +233,13 @@ export class NfeService {
             vCofins: it.vCofins ?? null,
             cstIpi: it.cstIpi ?? null,
             vIpi: it.vIpi ?? null,
+            cstIbsCbs: it.cstIbsCbs ?? null,
+            cClassTrib: it.cClassTrib ?? null,
+            vBcIbsCbs: it.vBcIbsCbs ?? null,
+            vCbs: it.vCbs ?? null,
+            vIbsUf: it.vIbsUf ?? null,
+            vIbsMun: it.vIbsMun ?? null,
+            vIbs: it.vIbs ?? null,
           })),
         },
       },
@@ -264,6 +284,9 @@ export class NfeService {
             cstCofins: true,
             vBcCofins: true,
             vCofins: true,
+            vCbs: true,
+            vIbsUf: true,
+            vIbsMun: true,
           },
         },
       },
@@ -283,11 +306,15 @@ export class NfeService {
       let bcIcms = 0;
       let pis = 0;
       let cofins = 0;
+      let cbs = 0;
+      let ibs = 0;
       for (const it of d.itens) {
         icms += Number(it.vIcms ?? 0);
         bcIcms += Number(it.vBcIcms ?? 0);
         pis += Number(it.vPis ?? 0);
         cofins += Number(it.vCofins ?? 0);
+        cbs += Number(it.vCbs ?? 0);
+        ibs += Number(it.vIbsUf ?? 0) + Number(it.vIbsMun ?? 0);
       }
       return {
         id: d.id,
@@ -308,6 +335,8 @@ export class NfeService {
         icms,
         pis,
         cofins,
+        cbs,
+        ibs,
       };
     });
 

@@ -36,6 +36,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const ddl = [
       'ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "destinatarioNome" TEXT',
       'ALTER TABLE "documento_fiscal" ADD COLUMN IF NOT EXISTS "xml" TEXT',
+      // IBS/CBS por item (reforma — destacado a partir de 2026)
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "cstIbsCbs" TEXT',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "cClassTrib" TEXT',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vBcIbsCbs" DECIMAL(18,2)',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vCbs" DECIMAL(18,2)',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbsUf" DECIMAL(18,2)',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbsMun" DECIMAL(18,2)',
+      'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbs" DECIMAL(18,2)',
     ];
     for (const sql of ddl) {
       try {

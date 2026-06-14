@@ -213,6 +213,15 @@ model ItemDocumento {
   cstIpi String?
   vIpi   Decimal? @db.Decimal(18, 2)
 
+  // IBS/CBS (reforma — LC 214/2025; destacado a partir de 2026, convive com legados)
+  cstIbsCbs  String?
+  cClassTrib String?
+  vBcIbsCbs  Decimal? @db.Decimal(18, 2)
+  vCbs       Decimal? @db.Decimal(18, 2) // CBS destacado
+  vIbsUf     Decimal? @db.Decimal(18, 2) // IBS da UF
+  vIbsMun    Decimal? @db.Decimal(18, 2) // IBS do município
+  vIbs       Decimal? @db.Decimal(18, 2) // IBS total (vIbsUf + vIbsMun, quando informado)
+
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   documento DocumentoFiscal   @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   apuracoes ApuracaoCredito[]

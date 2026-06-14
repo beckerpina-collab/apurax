@@ -4,6 +4,7 @@ import { AlertTriangle, Calculator, RefreshCw, Receipt } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import StatusPill from '@/components/StatusPill';
+import TablePagination, { PAGE_SIZE } from '@/components/TablePagination';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -66,6 +67,8 @@ const IMPOSTOS: Array<{ label: string; value: ImpostoTipo }> = [
   { label: 'IPI', value: 'ipi' },
   { label: 'PIS/COFINS', value: 'pis-cofins' },
   { label: 'ISS', value: 'iss' },
+  { label: 'CBS', value: 'cbs' },
+  { label: 'IBS', value: 'ibs' },
 ];
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -81,9 +84,11 @@ export default function Apuracoes() {
   const [carregandoCreditos, setCarregandoCreditos] = useState(false);
   const [anoCred, setAnoCred] = useState<string>(competenciaAtual.slice(0, 4));
   const [mesCred, setMesCred] = useState<string>(String(Number(competenciaAtual.slice(5, 7))));
+  const [pagina, setPagina] = useState(1); // 1-based
 
   useEffect(() => {
     let ativo = true;
+    setPagina(1);
     (async () => {
       setCarregandoCreditos(true);
       try {
@@ -91,7 +96,7 @@ export default function Apuracoes() {
           anoCred === 'todos' ? undefined : Number(anoCred),
           mesCred === 'todos' ? undefined : Number(mesCred),
         )) as Apuracao[];
-        if (ativo) setCreditos(dados);
+        if (ativo) setCreditos(Array.isArray(dados) ? dados : []);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Falha ao carregar os créditos.');
       } finally {
@@ -223,7 +228,7 @@ export default function Apuracoes() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {creditos.map((c) => (
+                      {creditos.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE).map((c) => (
                         <TableRow key={c.id}>
                           <TableCell>{c.documento}</TableCell>
                           <TableCell>{c.item}</TableCell>
@@ -257,6 +262,11 @@ export default function Apuracoes() {
                       ))}
                     </TableBody>
                   </Table>
+                  <TablePagination
+                    page={pagina}
+                    total={creditos.length}
+                    onPageChange={setPagina}
+                  />
                 </div>
               )}
             </CardContent>

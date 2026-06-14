@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
+import TablePagination, { PAGE_SIZE } from '@/components/TablePagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,12 @@ export default function Bling() {
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<PuxarSaidasResp | null>(null);
   const [importResultado, setImportResultado] = useState<ImportResp | null>(null);
+  const [pagina, setPagina] = useState(1); // 1-based, tabela "Notas listadas"
+
+  // Volta para a primeira página sempre que a listagem muda.
+  useEffect(() => {
+    setPagina(1);
+  }, [resultado]);
 
   async function carregarStatus(silent = false) {
     if (!silent) setCarregandoStatus(true);
@@ -434,14 +441,16 @@ export default function Bling() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {resultado.notas.length === 0 ? (
+                    {(resultado?.notas ?? []).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                           Nenhuma nota de saída encontrada no período.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      resultado.notas.map((n) => (
+                      (resultado?.notas ?? [])
+                        .slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE)
+                        .map((n) => (
                         <TableRow key={n.id}>
                           <TableCell className="font-medium">{n.numero}</TableCell>
                           <TableCell>{n.serie}</TableCell>
@@ -456,6 +465,11 @@ export default function Bling() {
                     )}
                   </TableBody>
                 </Table>
+                <TablePagination
+                  page={pagina}
+                  total={(resultado?.notas ?? []).length}
+                  onPageChange={setPagina}
+                />
               </div>
             </CardContent>
           </Card>

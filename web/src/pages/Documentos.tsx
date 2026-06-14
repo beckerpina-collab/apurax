@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX, Download } from 'lucide-react';
+import { FileText, Receipt, ShieldCheck, Coins, RefreshCw, FileX, Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/EmptyState';
 import PageHeader from '@/components/PageHeader';
 import ResumoCst, { type ResumoCstData } from '@/components/ResumoCst';
 import StatCard from '@/components/StatCard';
+import TablePagination, { PAGE_SIZE } from '@/components/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -37,6 +39,8 @@ interface Documento {
   icms: number; // ICMS próprio (soma dos itens) — débito na saída
   pis: number; // PIS (soma dos itens)
   cofins: number; // COFINS (soma dos itens)
+  cbs: number; // CBS destacado (reforma 2026)
+  ibs: number; // IBS destacado (UF + município)
 }
 
 type Filtro = 'Todos' | Modelo;
@@ -60,6 +64,10 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   const [ano, setAno] = useState<string>(String(ANO_ATUAL));
   const [mes, setMes] = useState<string>(String(Number(COMP_ATUAL.slice(5, 7))));
   const [baixando, setBaixando] = useState<string | null>(null);
+  // Filtros de texto (client-side, dentro do período carregado) + paginação.
+  const [buscaContraparte, setBuscaContraparte] = useState('');
+  const [buscaNumero, setBuscaNumero] = useState('');
+  const [pagina, setPagina] = useState(1);
 
   async function baixarXml(d: Documento) {
     setBaixando(`${d.id}:xml`);
@@ -130,9 +138,30 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   }, [docs]);
 
   const filtros = ehEntrada ? FILTROS_ENTRADA : FILTROS_SAIDA;
-  const filtrados = useMemo(
-    () => (filtro === 'Todos' ? docs : docs.filter((d) => d.modelo === filtro)),
-    [docs, filtro],
+  const filtrados = useMemo(() => {
+    const txt = buscaContraparte.trim().toLowerCase();
+    const num = buscaNumero.trim();
+    return docs.filter((d) => {
+      if (filtro !== 'Todos' && d.modelo !== filtro) return false;
+      if (txt) {
+        // entrada filtra pelo emitente; saída, pelo destinatário (nome + CNPJ)
+        const nome = ehEntrada ? d.emitente : d.destinatario;
+        const cnpj = ehEntrada ? d.cnpjEmitente : d.cnpjDestinatario;
+        if (!`${nome ?? ''} ${cnpj ?? ''}`.toLowerCase().includes(txt)) return false;
+      }
+      if (num && !(d.numero ?? '').includes(num)) return false;
+      return true;
+    });
+  }, [docs, filtro, buscaContraparte, buscaNumero, ehEntrada]);
+
+  // qualquer mudança de filtro/período volta para a 1ª página
+  useEffect(() => {
+    setPagina(1);
+  }, [filtro, buscaContraparte, buscaNumero, ano, mes, tipo]);
+
+  const paginados = useMemo(
+    () => filtrados.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE),
+    [filtrados, pagina],
   );
 
   const periodoLabel =
@@ -205,19 +234,37 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
       </div>
 
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-sm font-semibold">
+        <CardHeader className="flex flex-col gap-4 pb-2 lg:flex-row lg:items-center lg:justify-between">
+          <CardTitle className="shrink-0 text-sm font-semibold">
             {ehEntrada ? 'Notas de entrada' : 'Notas de saída'}
           </CardTitle>
-          <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
-            <TabsList>
-              {filtros.map((f) => (
-                <TabsTrigger key={f} value={f}>
-                  {f}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={buscaContraparte}
+                onChange={(e) => setBuscaContraparte(e.target.value)}
+                placeholder={ehEntrada ? 'Buscar emitente…' : 'Buscar destinatário…'}
+                className="h-9 w-full pl-8 sm:w-[220px]"
+              />
+            </div>
+            <Input
+              value={buscaNumero}
+              onChange={(e) => setBuscaNumero(e.target.value)}
+              placeholder="Nº da nota"
+              inputMode="numeric"
+              className="h-9 w-full sm:w-[130px]"
+            />
+            <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
+              <TabsList>
+                {filtros.map((f) => (
+                  <TabsTrigger key={f} value={f}>
+                    {f}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -253,11 +300,13 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableHead className="text-right">ICMS</TableHead>
                     <TableHead className="text-right">PIS</TableHead>
                     <TableHead className="text-right">COFINS</TableHead>
+                    <TableHead className="text-right">CBS</TableHead>
+                    <TableHead className="text-right">IBS</TableHead>
                     <TableHead className="text-center">Arquivos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtrados.map((d) => (
+                  {paginados.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell>{d.modelo}</TableCell>
                       <TableCell className="whitespace-nowrap">
@@ -286,6 +335,8 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                       <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.pis ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.cofins ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{brl(d.cbs ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{brl(d.ibs ?? 0)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -324,6 +375,7 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination page={pagina} total={filtrados.length} onPageChange={setPagina} />
             </div>
           )}
         </CardContent>

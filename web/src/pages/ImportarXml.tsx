@@ -1,8 +1,9 @@
 import JSZip from 'jszip';
 import { FileArchive, FileCheck2, FileText, ReceiptText, RefreshCw, Truck, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
+import TablePagination, { PAGE_SIZE } from '@/components/TablePagination';
 import StatusPill from '@/components/StatusPill';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +22,7 @@ type ModeloDoc = 'nfe' | 'cte' | 'nfse';
 interface ResultadoImport {
   chaveAcesso: string;
   totalItens?: number;
-  creditoPotencial?: { ICMS: number | string; PIS: number | string; COFINS: number | string };
+  creditoPotencial?: { ICMS: number | string; PIS: number | string; COFINS: number | string; CBS?: string; IBS?: string };
   observacao: string;
 }
 
@@ -74,9 +75,14 @@ export default function ImportarXml() {
   const [progresso, setProgresso] = useState('');
   const [resultado, setResultado] = useState<ResultadoImport | null>(null);
   const [lote, setLote] = useState<ItemLote[] | null>(null);
+  const [pagina, setPagina] = useState(1);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const abaAtual = ABAS.find((a) => a.value === aba) ?? ABAS[0];
+
+  useEffect(() => {
+    setPagina(1);
+  }, [lote]);
 
   function onTrocarAba(value: string) {
     setAba(value);
@@ -274,7 +280,7 @@ export default function ImportarXml() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lote.map((l, i) => (
+                  {lote.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE).map((l, i) => (
                     <TableRow key={`${l.nome}-${i}`}>
                       <TableCell className="max-w-[260px] truncate font-medium" title={l.nome}>
                         {l.nome}
@@ -293,6 +299,7 @@ export default function ImportarXml() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination page={pagina} total={lote.length} onPageChange={setPagina} />
           </CardContent>
         </Card>
       )}
@@ -317,7 +324,7 @@ export default function ImportarXml() {
 
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Crédito potencial</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                 <div className="rounded-lg border border-border p-4">
                   <p className="text-xs text-muted-foreground">ICMS</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.ICMS ?? 0)}</p>
@@ -329,6 +336,14 @@ export default function ImportarXml() {
                 <div className="rounded-lg border border-border p-4">
                   <p className="text-xs text-muted-foreground">COFINS</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.COFINS ?? 0)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs text-muted-foreground">CBS</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.CBS ?? '0.00')}</p>
+                </div>
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs text-muted-foreground">IBS</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{brl(resultado.creditoPotencial?.IBS ?? '0.00')}</p>
                 </div>
               </div>
             </div>

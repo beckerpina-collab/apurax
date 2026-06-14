@@ -33,6 +33,18 @@ export class ApuracaoFiscalController {
     return this.apuracao.apurarIssCompetencia(dto.empresaId, dto.ano, dto.mes);
   }
 
+  @Roles(Role.ADMIN, Role.CONTADOR)
+  @Post('cbs')
+  cbs(@Body() dto: ApurarIcmsDto) {
+    return this.apuracao.apurarCbsIbsCompetencia(dto.empresaId, 'CBS', dto.ano, dto.mes);
+  }
+
+  @Roles(Role.ADMIN, Role.CONTADOR)
+  @Post('ibs')
+  ibs(@Body() dto: ApurarIcmsDto) {
+    return this.apuracao.apurarCbsIbsCompetencia(dto.empresaId, 'IBS', dto.ano, dto.mes);
+  }
+
   @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
   @Post('simples-das')
   das(@Body() dto: SimplesDasDto) {

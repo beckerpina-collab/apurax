@@ -28,7 +28,7 @@ export class DashboardService {
     const whereLacuna = periodo ? { importacao: { dtIni: { gte: periodo.inicio, lt: periodo.fim } } } : {};
     const whereImposto = filtro.ano ? { ano: filtro.ano } : {};
 
-    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms, grpPis, grpCofins] =
+    const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms, saidaCbsIbs, grpPis, grpCofins] =
       await Promise.all([
         db.apuracaoCredito.aggregate({
           _sum: { valorCredito: true },
@@ -43,7 +43,9 @@ export class DashboardService {
         db.apuracaoImposto.groupBy({
           by: ['ano', 'mes'],
           _sum: { credito: true, aRecolher: true },
-          where: whereImposto,
+          // só tributos LEGADOS: CBS/IBS (alíquota-teste 2026) não somam à carga atual —
+          // aparecem à parte no card "CBS/IBS (saídas)" (saidas.cbsDebito/ibsDebito).
+          where: { ...whereImposto, imposto: { in: ['ICMS', 'IPI', 'PIS', 'COFINS', 'ISS'] } },
           orderBy: [{ ano: 'asc' }, { mes: 'asc' }],
         }),
         // faixa de anos com documentos (sempre SEM filtro — alimenta o seletor)
@@ -56,6 +58,11 @@ export class DashboardService {
         }),
         db.itemDocumento.aggregate({
           _sum: { vIcms: true },
+          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+        }),
+        // CBS/IBS de SAÍDA (débito) — reforma 2026.
+        db.itemDocumento.aggregate({
+          _sum: { vCbs: true, vIbsUf: true, vIbsMun: true },
           where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
         }),
         // PIS/COFINS de SAÍDA por CST (débito) — resumo no painel.
@@ -132,6 +139,8 @@ export class DashboardService {
         icmsDebito: Number(saidaIcms._sum.vIcms ?? 0),
         pisDebito,
         cofinsDebito,
+        cbsDebito: Number(saidaCbsIbs._sum.vCbs ?? 0),
+        ibsDebito: Number(saidaCbsIbs._sum.vIbsUf ?? 0) + Number(saidaCbsIbs._sum.vIbsMun ?? 0),
       },
       resumoCst: { pis: cstPis, cofins: cstCofins },
       serie,

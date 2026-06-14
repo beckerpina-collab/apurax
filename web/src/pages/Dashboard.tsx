@@ -1,4 +1,4 @@
-import { Banknote, FileWarning, Receipt, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, Banknote, FileWarning, Receipt, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import EmptyState from '@/components/EmptyState';
@@ -77,8 +77,8 @@ export default function Dashboard() {
 
       {!d ? (
         <>
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[0, 1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-[120px] rounded-xl" />
             ))}
           </div>
@@ -86,7 +86,7 @@ export default function Dashboard() {
         </>
       ) : (
         <>
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Faturamento (saídas)"
           value={brl(d.saidas.faturamento)}
@@ -97,6 +97,13 @@ export default function Dashboard() {
         <StatCard title="Crédito sugerido" value={brl(d.creditoSugerido)} subtitle="entradas · aguardando homologação" icon={TrendingUp} />
         <StatCard title="Imposto a pagar" value={brl(d.impostoAPagar.total)} subtitle="após rodar a apuração" icon={Receipt} />
         <StatCard title="Lacuna no SPED" value={brl(d.lacunaSped)} subtitle="crédito não escriturado" icon={FileWarning} variant="accent" />
+        <StatCard
+          title="CBS/IBS (saídas)"
+          value={brl(d.saidas.cbsDebito + d.saidas.ibsDebito)}
+          subtitle={`CBS ${brl(d.saidas.cbsDebito)} · IBS ${brl(d.saidas.ibsDebito)}`}
+          icon={ArrowLeftRight}
+          variant="accent"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
