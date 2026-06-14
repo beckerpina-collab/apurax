@@ -225,6 +225,39 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
+  /** Baixa o PDF auxiliar (DANFE/DACTE) gerado a partir do XML — fetch autenticado + download. */
+  async baixarDocumentoPdf(id: string, chave?: string): Promise<void> {
+    let blob: Blob;
+    let nome = `${chave || id}.pdf`;
+    if (DEMO) {
+      await delay(300);
+      blob = new Blob(
+        [`%PDF-1.4\n% DANFE/DACTE de demonstração (${chave || id}) — disponível na versão conectada.`],
+        { type: 'application/pdf' },
+      );
+    } else {
+      const res = await fetch(`${API_URL}/fiscal/documentos/${id}/pdf`, {
+        headers: { ...(getToken() ? { authorization: `Bearer ${getToken()}` } : {}) },
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Falha ao gerar o PDF (${res.status}).`);
+      }
+      const cd = res.headers.get('content-disposition');
+      const m = cd?.match(/filename="?([^"]+)"?/);
+      if (m) nome = m[1];
+      blob = await res.blob();
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   async apuracoes(ano?: number, mes?: number) {
     if (DEMO) {
       await delay();

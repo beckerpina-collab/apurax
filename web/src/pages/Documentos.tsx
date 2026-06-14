@@ -62,11 +62,22 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
   const [baixando, setBaixando] = useState<string | null>(null);
 
   async function baixarXml(d: Documento) {
-    setBaixando(d.id);
+    setBaixando(`${d.id}:xml`);
     try {
       await api.baixarDocumentoXml(d.id, d.chaveAcesso);
     } catch (e) {
       toast.error((e as Error).message || 'Não foi possível baixar o XML.');
+    } finally {
+      setBaixando(null);
+    }
+  }
+
+  async function baixarPdf(d: Documento) {
+    setBaixando(`${d.id}:pdf`);
+    try {
+      await api.baixarDocumentoPdf(d.id, d.chaveAcesso);
+    } catch (e) {
+      toast.error((e as Error).message || 'Não foi possível gerar o PDF.');
     } finally {
       setBaixando(null);
     }
@@ -242,7 +253,7 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                     <TableHead className="text-right">ICMS</TableHead>
                     <TableHead className="text-right">PIS</TableHead>
                     <TableHead className="text-right">COFINS</TableHead>
-                    <TableHead className="text-right">XML</TableHead>
+                    <TableHead className="text-center">Arquivos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -275,21 +286,39 @@ export default function Documentos({ tipo }: { tipo: TipoOperacao }) {
                       <TableCell className="text-right tabular-nums">{brl(d.icms ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.pis ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums">{brl(d.cofins ?? 0)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2"
-                          title="Baixar XML"
-                          disabled={baixando === d.id}
-                          onClick={() => baixarXml(d)}
-                        >
-                          {baixando === d.id ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                        </Button>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            title="Baixar XML"
+                            disabled={baixando === `${d.id}:xml`}
+                            onClick={() => baixarXml(d)}
+                          >
+                            {baixando === `${d.id}:xml` ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                            <span className="ml-1 text-xs">XML</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            title="Baixar PDF (DANFE/DACTE)"
+                            disabled={baixando === `${d.id}:pdf`}
+                            onClick={() => baixarPdf(d)}
+                          >
+                            {baixando === `${d.id}:pdf` ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                            <span className="ml-1 text-xs">PDF</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

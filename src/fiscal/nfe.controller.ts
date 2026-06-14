@@ -4,12 +4,16 @@ import type { Response } from 'express';
 import { parseCompetencia } from '../common/competencia';
 import { CurrentUser, UsuarioAutenticado } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { DanfeService } from '../danfe/danfe.service';
 import { ImportarNfeDto } from './dto/importar-nfe.dto';
 import { NfeService } from './nfe.service';
 
 @Controller('fiscal')
 export class NfeController {
-  constructor(private readonly nfe: NfeService) {}
+  constructor(
+    private readonly nfe: NfeService,
+    private readonly danfe: DanfeService,
+  ) {}
 
   @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
   @Post('nfe')
@@ -35,5 +39,15 @@ export class NfeController {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
     res.send(xml);
+  }
+
+  /** Download do PDF auxiliar (DANFE p/ NF-e, DACTE p/ CT-e) gerado localmente a partir do XML. */
+  @Get('documentos/:id/pdf')
+  async baixarPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { xml, modelo } = await this.nfe.obterXmlEModelo(id);
+    const { pdf, nomeArquivo } = await this.danfe.gerar(xml, modelo);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+    res.send(pdf);
   }
 }

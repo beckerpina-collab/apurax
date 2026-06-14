@@ -344,4 +344,21 @@ export class NfeService {
     }
     return { xml: doc.xml, nomeArquivo: `${doc.chaveAcesso}.xml` };
   }
+
+  /** XML bruto + modelo p/ gerar o DANFE/DACTE. select explícito do xml (vence o omit global). */
+  async obterXmlEModelo(id: string): Promise<{ xml: string; modelo: string }> {
+    const doc = await this.prisma.scoped.documentoFiscal.findFirst({
+      where: { id },
+      select: { xml: true, modelo: true },
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento não encontrado.');
+    }
+    if (!doc.xml) {
+      throw new NotFoundException(
+        'XML não disponível (documento importado antes do armazenamento do XML — reimporte/recapture para gerar o PDF).',
+      );
+    }
+    return { xml: doc.xml, modelo: doc.modelo };
+  }
 }
