@@ -20,9 +20,15 @@ export const BLING_AUTH = 'https://www.bling.com.br/Api/v3/oauth/authorize';
 export const BLING_API = 'https://api.bling.com.br/Api/v3';
 export const BLING_TOKEN = 'https://api.bling.com.br/Api/v3/oauth/token';
 
-/** Limitador GLOBAL: 1 chamada a cada 400ms (2,5 req/s — folga sob o limite de
- *  3 req/s do Bling). Webhook, importação manual e token dividem o orçamento. */
-export const blingLimiter = new RateLimiter(400);
+/**
+ * Limitador GLOBAL da conta Bling. O limite oficial é 3 req/s POR CONTA (todos os
+ * módulos/endpoints somados — developer.bling.com.br/limites); exceder devolve 429
+ * (TOO_MANY_REQUESTS) e, pior, acumular 300 erros OU 600 requisições em 10s BLOQUEIA
+ * o IP por 10 min. Por isso operamos a 1 chamada/500ms (2 req/s ≈ 33% de folga) —
+ * webhook, importação manual e renovação de token dividem este mesmo orçamento.
+ * Ajustável por BLING_RATE_MS (intervalo em MILISSEGUNDOS). Lido de process.env (não
+ * do ConfigService) porque este objeto é criado no import do módulo. */
+export const blingLimiter = new RateLimiter(Number(process.env.BLING_RATE_MS) || 500);
 
 export class BlingApiError extends Error {
   constructor(
@@ -104,6 +110,10 @@ export function refreshBlingToken(args: {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Retries extras após o 1º 429 (total = 5 requisições). Poucas de propósito: o
+ *  Bling bloqueia o IP por 10 min se acumular 300 erros / 600 req em 10s. */
+const MAX_RETRY_429 = 4;
+
 /** GET autenticado genérico. Desembrulha `{ data }`. Em 429 respeita Retry-After. */
 export async function blingGet<T = unknown>(
   path: string,
@@ -118,10 +128,17 @@ export async function blingGet<T = unknown>(
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
     });
-    if (res.status === 429 && attempt < 3) {
+    if (res.status === 429 && attempt < MAX_RETRY_429) {
+      // O Bling NÃO garante header Retry-After no 429 (não documentado) → backoff
+      // exponencial PRÓPRIO com jitter (base 1,5s, teto 30s). O retry NÃO pode ser
+      // apertado: 300 erros / 600 req em 10s = bloqueio de IP por 10 min (pior que
+      // o 429). Por isso poucas tentativas + recuo GLOBAL do limiter (penalizar):
+      // assim varredura e fila desaceleram JUNTAS e param de alimentar o 429.
       const ra = Number(res.headers.get('Retry-After'));
-      const wait = Number.isFinite(ra) && ra > 0 ? Math.min(ra, 20) : Math.min(2 * 2 ** attempt, 12);
-      log.warn(`Bling 429 em ${path} (tentativa ${attempt + 1}) — aguardando ${wait}s (Retry-After=${res.headers.get('Retry-After') ?? '—'}).`);
+      const base = Number.isFinite(ra) && ra > 0 ? Math.min(ra, 30) : Math.min(1.5 * 2 ** attempt, 30);
+      const wait = base + base * 0.25 * Math.random(); // jitter ±25% (dessincroniza chamadas concorrentes)
+      blingLimiter.penalizar(wait * 1000);
+      log.warn(`Bling 429 em ${path} (tentativa ${attempt + 1}/${MAX_RETRY_429 + 1}) — recuo global de ${wait.toFixed(1)}s (Retry-After=${res.headers.get('Retry-After') ?? '—'}).`);
       await sleep(wait * 1000);
       continue;
     }

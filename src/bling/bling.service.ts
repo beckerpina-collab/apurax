@@ -24,6 +24,7 @@ import { BlingFilaService } from './bling-fila.service';
 const PAGE = 100;
 const PREVIEW_MAX = 2000; // teto só da PRÉ-VISUALIZAÇÃO (Listar); a importação não tem teto
 const MAX_PAGINAS = 1000; // backstop da varredura em 2º plano (~100 mil notas)
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Progresso de uma varredura de período (exposto no status p/ o usuário ver). */
 export interface VarreduraStatus {
@@ -263,13 +264,12 @@ export class BlingService {
             this.logger.warn(`Bling varredura ${empresaId}: cancelada pelo usuário na página ${pagina}.`);
             return;
           }
-          const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
-          const lote = (await rec.listar(access, {
-            pagina,
-            limite: PAGE,
-            dataEmissaoInicial: ini,
-            dataEmissaoFinal: fim,
-          })) as BlingInvoice[];
+          // Listagem resiliente: se o blingGet já esgotou o backoff de 429, dá UMA
+          // segunda chance após pausa longa (sem isto, um 429 transitório numa página
+          // abortava a descoberta INTEIRA do período).
+          const lote = await this.listarPaginaResiliente(rec.listar, tenantId, empresaId, pagina, ini, fim, () =>
+            atualizar({ encontradas, enfileiradas, paginas }),
+          );
           if (!lote?.length) break;
           for (const nf of lote) {
             if (nf?.id == null) continue;
@@ -290,9 +290,50 @@ export class BlingService {
         `Bling varredura ${empresaId} (${dataInicial}..${dataFinal}): ${encontradas} encontrada(s) [NF-e + NFC-e], ${enfileiradas} nova(s) na fila${truncada ? ' [TRUNCADA no backstop]' : ''}.`,
       );
     } catch (e) {
-      atualizar({ estado: 'erro', erro: (e as Error).message });
+      // A DESCOBERTA parou, mas as notas já enfileiradas continuam sendo baixadas
+      // pela fila (independente da varredura). Deixa isso explícito no status.
+      const cont = enfileiradas > 0 ? ` (${enfileiradas} já enfileirada(s) seguem sendo importadas; reimporte o período p/ pegar o restante)` : '';
+      atualizar({ estado: 'erro', encontradas, enfileiradas, paginas, erro: `${(e as Error).message}${cont}` });
       this.logger.error(`Bling varredura ${empresaId}: ${(e as Error).message}`);
     }
+  }
+
+  /**
+   * Lista UMA página re-capturando o token; se o blingGet já esgotou o backoff de
+   * 429, dá uma 2ª chance após pausa longa (deixa a taxa da conta esfriar). NÃO
+   * aninha mais que isto — insistir acumula erros e o Bling bloqueia o IP (300
+   * erros / 600 req em 10s = 10 min). `tocar()` refresca o progresso durante a
+   * espera p/ a varredura não ser considerada "presa" (VARREDURA_STALE_MS).
+   */
+  private async listarPaginaResiliente(
+    listar: typeof listInvoices,
+    tenantId: string,
+    empresaId: string,
+    pagina: number,
+    ini: string,
+    fim: string,
+    tocar: () => void,
+  ): Promise<BlingInvoice[]> {
+    let ultimoErro: unknown;
+    for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+      if (tentativa > 0) {
+        // Pausa de 30s em passos de 5s, refrescando o progresso a cada passo.
+        for (let t = 0; t < 30_000; t += 5_000) {
+          await sleep(5_000);
+          tocar();
+        }
+      }
+      try {
+        const access = await this.token.accessToken(tenantId, empresaId); // renova sozinho perto de expirar
+        return (await listar(access, { pagina, limite: PAGE, dataEmissaoInicial: ini, dataEmissaoFinal: fim })) as BlingInvoice[];
+      } catch (e) {
+        ultimoErro = e;
+        this.logger.warn(
+          `Bling varredura ${empresaId} pág ${pagina}: ${(e as Error).message}${tentativa === 0 ? ' — 2ª chance em 30s.' : ' — desistindo da página.'}`,
+        );
+      }
+    }
+    throw ultimoErro;
   }
 
   // ----- Webhook (PÚBLICO) ---------------------------------------------------

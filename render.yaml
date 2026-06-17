@@ -40,6 +40,11 @@ services:
         value: af3f0b0addf6523c8be167b6c47f20a474fc2d4b
       - key: BLING_REDIRECT_URI
         value: https://www.apurax.com.br/api/bling/callback
+      # Intervalo (ms) entre chamadas à API do Bling. Limite oficial: 3 req/s POR
+      # CONTA; 500ms = 2 req/s (folga p/ não tomar 429 nem bloqueio de IP). Aumente
+      # se ainda houver 429 em importações grandes; diminua (mín. ~350) p/ acelerar.
+      - key: BLING_RATE_MS
+        value: "500"
       - key: APP_URL
         value: https://www.apurax.com.br
       # DATABASE_URL injetada automaticamente pelo Postgres abaixo (URL interna).
