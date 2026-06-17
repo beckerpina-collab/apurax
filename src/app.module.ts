@@ -21,6 +21,7 @@ import { ApuracaoFiscalModule } from './apuracao-fiscal/apuracao-fiscal.module';
 import { NfseModule } from './nfse/nfse.module';
 import { BlingModule } from './bling/bling.module';
 import { SaeModule } from './sae/sae.module';
+import { CapturaSaidasCronModule } from './captura-cron/captura-saidas-cron.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IaModule } from './ia/ia.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -66,6 +67,7 @@ const serveStatic =
     NfseModule,
     BlingModule,
     SaeModule,
+    CapturaSaidasCronModule,
     DashboardModule,
     IaModule,
   ],

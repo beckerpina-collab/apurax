@@ -13,5 +13,6 @@ import { SaeSpClient } from './sae-sp.client';
   imports: [DfeModule, FiscalModule],
   controllers: [SaeController],
   providers: [SaeService, SaeSpClient],
+  exports: [SaeService], // usado pelo cron de captura de saídas
 })
 export class SaeModule {}

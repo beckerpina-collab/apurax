@@ -11,5 +11,6 @@ import { NfseService } from './nfse.service';
   imports: [AuditoriaModule, DfeModule], // DfeModule exporta CertificadoService (custódia A1)
   controllers: [NfseController],
   providers: [NfseService, NfseParserService, AdnNfseClient, AdnNfseService],
+  exports: [AdnNfseService], // usado pelo cron de captura de saídas
 })
 export class NfseModule {}
