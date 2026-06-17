@@ -17,7 +17,28 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 
 import { api } from '@/lib/api';
 import { useEmpresa } from '@/lib/empresa-context';
-import { dataHoraBR } from '@/lib/format';
+import { dataHoraBR, mesAtualSP } from '@/lib/format';
+
+// Período pré-filtrado p/ a captura de NFC-e (SP) = mês atual no fuso de São Paulo.
+const COMP_SP = mesAtualSP();
+const NFCE_INI = `${COMP_SP}-01`;
+const NFCE_FIM = `${COMP_SP}-${String(
+  new Date(Number(COMP_SP.slice(0, 4)), Number(COMP_SP.slice(5, 7)), 0).getDate(),
+).padStart(2, '0')}`;
+
+interface StatusNfce {
+  estado: 'capturando' | 'concluida' | 'erro';
+  periodo: string;
+  ambiente: string;
+  chavesEncontradas: number;
+  importadas: number;
+  jaImportadas: number;
+  semXml: number;
+  erros: number;
+  cStat?: string;
+  mensagem?: string;
+  atualizadoEm: string;
+}
 
 type TipoEvento = '210210' | '210200' | '210220' | '210240';
 const EVENTOS: { value: TipoEvento; label: string; dica: string }[] = [
@@ -60,6 +81,41 @@ export default function Captura() {
   const [carregandoCursores, setCarregandoCursores] = useState(true);
   const [sincronizando, setSincronizando] = useState<ModeloSync | null>(null);
   const [resultado, setResultado] = useState<ResultadoSync | null>(null);
+
+  // Captura de NFC-e (SEFAZ-SP / SAE)
+  const [dataIniNfce, setDataIniNfce] = useState(NFCE_INI);
+  const [dataFimNfce, setDataFimNfce] = useState(NFCE_FIM);
+  const [capturandoNfce, setCapturandoNfce] = useState(false);
+  const [statusNfce, setStatusNfce] = useState<StatusNfce | null>(null);
+
+  async function capturarNfce() {
+    if (!empresaId) {
+      toast.error('Selecione uma empresa no topo da página antes de capturar.');
+      return;
+    }
+    setCapturandoNfce(true);
+    try {
+      const r = (await api.capturarNfceSp(empresaId, dataIniNfce, dataFimNfce)) as {
+        captura?: StatusNfce;
+        observacao?: string;
+      };
+      setStatusNfce(r.captura ?? null);
+      toast.success(r.observacao ?? 'Captura de NFC-e (SP) iniciada.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao capturar NFC-e (SP).');
+    } finally {
+      setCapturandoNfce(false);
+    }
+  }
+
+  async function atualizarStatusNfce() {
+    if (!empresaId) return;
+    try {
+      setStatusNfce((await api.statusNfceSp(empresaId)) as StatusNfce | null);
+    } catch {
+      /* status é informativo — silencioso */
+    }
+  }
 
   async function carregarCursores() {
     setCarregandoCursores(true);
@@ -311,6 +367,53 @@ export default function Captura() {
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>NFC-e emitidas (SEFAZ-SP)</CardTitle>
+          <CardDescription>
+            Baixa as suas NFC-e (modelo 65) direto da SEFAZ-SP pelo SAE — só para empresas de <b>SP</b>, usando o
+            certificado e-CNPJ. A Distribuição DFe nacional não entrega NFC-e; este é o canal estadual. As notas
+            capturadas entram em <b>Documentos de Saída</b> (débito na apuração).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="nfceIni">Data inicial</Label>
+              <Input id="nfceIni" type="date" value={dataIniNfce} onChange={(e) => setDataIniNfce(e.target.value)} className="w-[170px]" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nfceFim">Data final</Label>
+              <Input id="nfceFim" type="date" value={dataFimNfce} onChange={(e) => setDataFimNfce(e.target.value)} className="w-[170px]" />
+            </div>
+            <Button onClick={capturarNfce} disabled={capturandoNfce}>
+              {capturandoNfce ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+              Capturar NFC-e (SP)
+            </Button>
+            <Button variant="outline" onClick={atualizarStatusNfce}>
+              Atualizar status
+            </Button>
+          </div>
+
+          {statusNfce && (
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertTitle>
+                Captura {statusNfce.estado} · {statusNfce.ambiente}
+              </AlertTitle>
+              <AlertDescription>
+                {statusNfce.mensagem ??
+                  `Encontradas ${statusNfce.chavesEncontradas} · importadas ${statusNfce.importadas} · já existiam ${statusNfce.jaImportadas} · sem XML ${statusNfce.semXml} · erros ${statusNfce.erros}`}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Janela máxima de 100 dias. Serviço novo da SEFAZ-SP (NT SAE-NFC-e v1.00) — validar em homologação.
+          </p>
         </CardContent>
       </Card>
     </>

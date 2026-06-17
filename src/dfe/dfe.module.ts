@@ -43,5 +43,6 @@ import { SefazEventoSoapClient } from './sefaz-evento-soap.client';
     DistribuicaoService,
     CapturaAgendadaService,
   ],
+  exports: [CertificadoService], // usado pelo SaeModule (captura NFC-e SP)
 })
 export class DfeModule {}

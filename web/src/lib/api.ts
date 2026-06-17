@@ -7,6 +7,8 @@ import {
   RESUMO_CST_DEMO,
   demoApurarImposto,
   demoApurarSimples,
+  demoCapturarNfceSp,
+  demoStatusNfceSp,
   demoBlingPuxar,
   demoBlingStatus,
   demoClassificar,
@@ -323,6 +325,23 @@ export const api = {
       return CURSORES;
     }
     return http<typeof CURSORES>('/distribuicao/cursores');
+  },
+
+  /** Captura de NFC-e emitidas via SAE da SEFAZ-SP (só empresas de SP). */
+  async capturarNfceSp(empresaId: string, dataInicial?: string, dataFinal?: string) {
+    if (DEMO) {
+      await delay(800);
+      return demoCapturarNfceSp();
+    }
+    return http('/sae/nfce/sincronizar', { method: 'POST', body: JSON.stringify({ empresaId, dataInicial, dataFinal }) });
+  },
+
+  async statusNfceSp(empresaId: string) {
+    if (DEMO) {
+      await delay(300);
+      return demoStatusNfceSp();
+    }
+    return http(`/sae/nfce/status?empresaId=${encodeURIComponent(empresaId)}`);
   },
 
   async manifestar(

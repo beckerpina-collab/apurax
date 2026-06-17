@@ -196,6 +196,30 @@ export function demoApurarImposto(imposto: string, ano: number, mes: number): Ap
   };
 }
 
+export function demoCapturarNfceSp() {
+  return {
+    status: 'capturando',
+    captura: demoStatusNfceSp(),
+    observacao: 'Captura de NFC-e (SP) iniciada em 2º plano (demo). As notas entram em Documentos de Saída.',
+  };
+}
+
+export function demoStatusNfceSp() {
+  return {
+    estado: 'concluida' as const,
+    periodo: '2026-06-01T00:00 a 2026-06-30T23:59',
+    ambiente: 'HOMOLOGAÇÃO (teste — não traz notas reais)',
+    chavesEncontradas: 3,
+    importadas: 3,
+    jaImportadas: 0,
+    semXml: 0,
+    erros: 0,
+    cStat: '100',
+    mensagem: 'Concluído (cStat 100): 3 chave(s), 3 importada(s) (demo).',
+    atualizadoEm: new Date().toISOString(),
+  };
+}
+
 export function demoApurarSimples(ano: number, mes: number, anexo = 'I') {
   // Demo: receita do mês R$ 12.200; RBT12 R$ 146.400 (1ª faixa do Anexo I → 4% efetivo).
   const receitaMes = 12200;
