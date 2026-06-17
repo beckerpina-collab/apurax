@@ -122,6 +122,12 @@ export class BlingTokenService {
     return this.prisma.blingConexao.findMany({ where: { status: 'ativo' }, orderBy: { criadoEm: 'asc' }, take: 50 });
   }
 
+  /** Conexão de uma empresa específica (ou null). Usada na importação manual p/
+   *  tentar a conexão dona da nota ANTES de varrer todas (economiza requisições). */
+  conexaoDe(tenantId: string, empresaId: string): Promise<BlingConexao | null> {
+    return this.prisma.blingConexao.findUnique({ where: { tenantId_empresaId: { tenantId, empresaId } } });
+  }
+
   marcarSync(tenantId: string, empresaId: string): Promise<unknown> {
     return this.prisma.blingConexao.updateMany({
       where: { tenantId, empresaId },

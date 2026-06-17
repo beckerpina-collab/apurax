@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
-import { FilaSequencial } from './fila-sequencial';
+import { FilaSequencial, type OrigemNota } from './fila-sequencial';
 
 const FILA = 'bling-notas';
 
@@ -22,12 +22,12 @@ export class BlingFilaService implements OnModuleDestroy {
   private filaMem?: FilaSequencial;
   private queue?: Queue;
   private worker?: Worker;
-  private processador?: (invoiceId: string) => Promise<void>;
+  private processador?: (invoiceId: string, origem?: OrigemNota) => Promise<void>;
 
   constructor(private readonly config: ConfigService) {}
 
   /** Registra quem processa cada nota e liga o backend (Redis ou memória). */
-  definirProcessador(fn: (invoiceId: string) => Promise<void>): void {
+  definirProcessador(fn: (invoiceId: string, origem?: OrigemNota) => Promise<void>): void {
     this.processador = fn;
     const url = this.config.get<string>('REDIS_URL');
 
@@ -38,7 +38,7 @@ export class BlingFilaService implements OnModuleDestroy {
       this.worker = new Worker(
         FILA,
         async (job) => {
-          await this.processador?.(String(job.data.invoiceId));
+          await this.processador?.(String(job.data.invoiceId), job.data.origem as OrigemNota | undefined);
         },
         {
           connection: conexao,
@@ -66,15 +66,17 @@ export class BlingFilaService implements OnModuleDestroy {
     }
   }
 
-  /** Enfileira uma NF; retorna false se ela já está pendente (dedupe). */
-  async enfileirar(invoiceId: string): Promise<boolean> {
+  /** Enfileira uma NF; retorna false se ela já está pendente (dedupe pelo invoiceId).
+   *  `origem` (importação manual) vai no payload do job p/ o processador tentar a
+   *  conexão dona primeiro; o dedupe continua só pela NF (não pela origem). */
+  async enfileirar(invoiceId: string, origem?: OrigemNota): Promise<boolean> {
     if (this.queue) {
       const jobId = `nf-${invoiceId}`;
       const existente = await this.queue.getJob(jobId);
       if (existente) return false; // ainda pendente/processando → dedupe
       await this.queue.add(
         'nf',
-        { invoiceId },
+        { invoiceId, origem },
         {
           jobId,
           attempts: 4,
@@ -85,7 +87,7 @@ export class BlingFilaService implements OnModuleDestroy {
       );
       return true;
     }
-    return this.filaMem?.enfileirar(invoiceId) ?? false;
+    return this.filaMem?.enfileirar(invoiceId, origem) ?? false;
   }
 
   /**

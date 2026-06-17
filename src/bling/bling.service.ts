@@ -20,6 +20,8 @@ import {
 } from './bling.client';
 import { assinaturaValida, parseEventoNota } from './bling.webhook';
 import { BlingFilaService } from './bling-fila.service';
+import type { OrigemNota } from './fila-sequencial';
+import type { BlingConexao } from '@prisma/client';
 
 const PAGE = 100;
 const PREVIEW_MAX = 2000; // teto só da PRÉ-VISUALIZAÇÃO (Listar); a importação não tem teto
@@ -64,7 +66,7 @@ export class BlingService {
   ) {
     // Fila ÚNICA (webhook + importação manual): Redis/BullMQ quando REDIS_URL
     // existe; memória no dev. Falha transitória re-tenta; vazão ~2 notas/s.
-    this.fila.definirProcessador((id) => this.processarInvoice(id));
+    this.fila.definirProcessador((id, origem) => this.processarInvoice(id, origem));
   }
 
   /** URL de autorização OAuth. Cria o `state` (CSRF) amarrado à empresa. */
@@ -274,7 +276,9 @@ export class BlingService {
           for (const nf of lote) {
             if (nf?.id == null) continue;
             encontradas += 1;
-            if (await this.fila.enfileirar(rec.ref(nf.id))) enfileiradas += 1;
+            // Importação manual: enfileira COM a empresa de origem → o processador
+            // tenta a conexão dela primeiro (não varre todas as conexões à toa).
+            if (await this.fila.enfileirar(rec.ref(nf.id), { tenantId, empresaId })) enfileiradas += 1;
           }
           paginas += 1;
           atualizar({ encontradas, enfileiradas, paginas });
@@ -362,56 +366,77 @@ export class BlingService {
    * 404/403 = "não é desta conta" → tenta a próxima conexão. Qualquer outra
    * falha (429/5xx/rede) é LANÇADA para a fila re-tentar — antes, era descartada.
    */
-  private async processarInvoice(ref: number | string): Promise<void> {
+  private async processarInvoice(ref: number | string, origem?: OrigemNota): Promise<void> {
     // ref pode vir prefixada: "nfce-<id>" (NFC-e mod 65) ou "<id>" puro (NF-e mod 55 —
     // também é o formato que o webhook enfileira). Roteia p/ o endpoint certo do Bling.
     const refStr = String(ref);
     const ehNfce = refStr.startsWith('nfce-');
     const invoiceId = ehNfce ? refStr.slice('nfce-'.length) : refStr;
+
+    // Importação manual: a origem é conhecida → tenta a conexão da empresa PRIMEIRO.
+    // Evita varrer todas as conexões à toa — cada GET que dá 404/403 numa conexão
+    // que não é a dona conta p/ o bloqueio de IP do Bling (300 erros em 10s). O
+    // webhook não tem origem e cai direto no fallback (prova de posse).
+    if (origem) {
+      const cx = await this.token.conexaoDe(origem.tenantId, origem.empresaId);
+      if (cx && (await this.tentarConexao(cx, invoiceId, ehNfce))) return;
+    }
+
+    // Fallback: varre as conexões ativas (pulando a origem já tentada acima).
     const conexoes = await this.token.listarAtivas();
     for (const cx of conexoes) {
-      let access: string;
-      try {
-        access = await this.token.accessTokenDaConexao(cx);
-      } catch {
-        continue; // token morto p/ esta conexão → próxima
-      }
-      let nf: BlingInvoice;
-      try {
-        nf = ehNfce ? await getConsumerInvoice(access, invoiceId) : await getInvoice(access, invoiceId);
-      } catch (e) {
-        if (e instanceof BlingApiError && (e.status === 404 || e.status === 403)) continue; // não é desta conta
-        throw e; // 429/5xx/rede → re-tenta via fila
-      }
-      const xml = await this.obterXml(nf, access);
-      if (xml) {
-        await this.cls.run(async () => {
-          this.cls.set('tenantId', cx.tenantId);
-          try {
-            await this.nfe.importarClassificado(cx.empresaId, xml);
-            this.bumpVarredura(cx.tenantId, cx.empresaId, 'importadas');
-          } catch (e) {
-            this.bumpVarredura(cx.tenantId, cx.empresaId, 'errosImport');
-            this.logger.warn(`importarSaida NF ${invoiceId}: ${(e as Error).message}`);
-          }
-        });
-      } else {
-        this.bumpVarredura(cx.tenantId, cx.empresaId, 'semXml');
-        // Diagnóstico SEM expor o conteúdo do documento: só o tamanho e a natureza do campo.
-        const v = String(nf.xml ?? '');
-        const natureza = v === '' ? 'vazio' : /^https?:\/\//i.test(v.trim()) ? 'url' : v.includes('<') ? 'xml' : 'outro';
-        this.logger.warn(
-          `NF ${invoiceId} sem XML utilizável (campo xml: natureza=${natureza}, ${v.length} chars; campos=[${Object.keys(nf).join(',')}]).`,
-        );
-      }
-      // marcarSync é só informativo (não decide dedupe) — falha aqui NÃO deve
-      // re-disparar a fila (re-importaria a nota). Logamos para ter visibilidade.
-      await this.token
-        .marcarSync(cx.tenantId, cx.empresaId)
-        .catch((e) => this.logger.warn(`Bling marcarSync NF ${invoiceId}: ${(e as Error).message}`));
-      return; // dono encontrado
+      if (origem && cx.tenantId === origem.tenantId && cx.empresaId === origem.empresaId) continue;
+      if (await this.tentarConexao(cx, invoiceId, ehNfce)) return; // dono encontrado
     }
     this.logger.warn(`NF ${invoiceId}: nenhuma conexão dona (404/403 em todas).`);
+  }
+
+  /**
+   * Tenta processar a NF com UMA conexão. Retorna true se ela é a dona (achou e
+   * importou — ou registrou "sem XML"); false se não é desta conta (404/403) ou o
+   * token está morto. LANÇA em 429/5xx/rede (a fila re-tenta).
+   */
+  private async tentarConexao(cx: BlingConexao, invoiceId: string, ehNfce: boolean): Promise<boolean> {
+    let access: string;
+    try {
+      access = await this.token.accessTokenDaConexao(cx);
+    } catch {
+      return false; // token morto p/ esta conexão
+    }
+    let nf: BlingInvoice;
+    try {
+      nf = ehNfce ? await getConsumerInvoice(access, invoiceId) : await getInvoice(access, invoiceId);
+    } catch (e) {
+      if (e instanceof BlingApiError && (e.status === 404 || e.status === 403)) return false; // não é desta conta
+      throw e; // 429/5xx/rede → re-tenta via fila
+    }
+    const xml = await this.obterXml(nf, access);
+    if (xml) {
+      await this.cls.run(async () => {
+        this.cls.set('tenantId', cx.tenantId);
+        try {
+          await this.nfe.importarClassificado(cx.empresaId, xml);
+          this.bumpVarredura(cx.tenantId, cx.empresaId, 'importadas');
+        } catch (e) {
+          this.bumpVarredura(cx.tenantId, cx.empresaId, 'errosImport');
+          this.logger.warn(`importarSaida NF ${invoiceId}: ${(e as Error).message}`);
+        }
+      });
+    } else {
+      this.bumpVarredura(cx.tenantId, cx.empresaId, 'semXml');
+      // Diagnóstico SEM expor o conteúdo do documento: só o tamanho e a natureza do campo.
+      const v = String(nf.xml ?? '');
+      const natureza = v === '' ? 'vazio' : /^https?:\/\//i.test(v.trim()) ? 'url' : v.includes('<') ? 'xml' : 'outro';
+      this.logger.warn(
+        `NF ${invoiceId} sem XML utilizável (campo xml: natureza=${natureza}, ${v.length} chars; campos=[${Object.keys(nf).join(',')}]).`,
+      );
+    }
+    // marcarSync é só informativo (não decide dedupe) — falha aqui NÃO deve
+    // re-disparar a fila (re-importaria a nota). Logamos para ter visibilidade.
+    await this.token
+      .marcarSync(cx.tenantId, cx.empresaId)
+      .catch((e) => this.logger.warn(`Bling marcarSync NF ${invoiceId}: ${(e as Error).message}`));
+    return true; // dono encontrado
   }
 
   /**

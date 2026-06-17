@@ -111,6 +111,14 @@ describe('RateLimiter (limite global do Bling)', () => {
     // 3 chamadas → pelo menos 2 intervalos de 40ms (com folga p/ timer impreciso)
     expect(Date.now() - t0).toBeGreaterThanOrEqual(70);
   });
+
+  it('penaliza (recuo global adaptativo) empurrando o próximo slot p/ frente', async () => {
+    const rl = new RateLimiter(10);
+    rl.penalizar(80); // simula recuo após um 429: próximo slot ~80ms à frente
+    const t0 = Date.now();
+    await rl.aguardar();
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(60); // esperou o recuo (folga p/ timer)
+  });
 });
 
 describe('FilaSequencial (processamento em segundo plano)', () => {
@@ -125,6 +133,20 @@ describe('FilaSequencial (processamento em segundo plano)', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(vistos).toEqual(['a', 'b']);
     expect(fila.tamanho).toBe(0);
+  });
+
+  it('repassa a origem ao processador (importação manual) e undefined no webhook', async () => {
+    const recebidos: Array<{ chave: string; origem?: { tenantId: string; empresaId: string } }> = [];
+    const fila = new FilaSequencial(async (c, origem) => {
+      recebidos.push({ chave: c, origem });
+    });
+    fila.enfileirar('nf-1', { tenantId: 't1', empresaId: 'e1' }); // importação manual
+    fila.enfileirar('nf-2'); // webhook (sem origem)
+    await new Promise((r) => setTimeout(r, 50));
+    expect(recebidos).toEqual([
+      { chave: 'nf-1', origem: { tenantId: 't1', empresaId: 'e1' } },
+      { chave: 'nf-2', origem: undefined },
+    ]);
   });
 
   it('re-tenta após falha transitória e conclui', async () => {

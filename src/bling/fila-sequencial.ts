@@ -19,9 +19,17 @@ export interface OpcoesFila {
   onErro?: (chave: string, erro: Error, desistiu: boolean) => void;
 }
 
+/** Empresa de ORIGEM de uma nota (só na importação manual; o webhook não sabe).
+ *  Permite o processador tentar a conexão dona PRIMEIRO, em vez de varrer todas. */
+export interface OrigemNota {
+  tenantId: string;
+  empresaId: string;
+}
+
 interface ItemFila {
   chave: string;
   tentativas: number;
+  origem?: OrigemNota;
 }
 
 export class FilaSequencial {
@@ -30,7 +38,7 @@ export class FilaSequencial {
   private rodando = false;
 
   constructor(
-    private readonly processar: (chave: string) => Promise<void>,
+    private readonly processar: (chave: string, origem?: OrigemNota) => Promise<void>,
     private readonly opts: OpcoesFila = {},
   ) {}
 
@@ -47,11 +55,11 @@ export class FilaSequencial {
     return n;
   }
 
-  /** Enfileira; retorna false se o item já estava pendente (dedupe). */
-  enfileirar(chave: string): boolean {
+  /** Enfileira; retorna false se o item já estava pendente (dedupe pela `chave`). */
+  enfileirar(chave: string, origem?: OrigemNota): boolean {
     if (this.pendentes.has(chave)) return false;
     this.pendentes.add(chave);
-    this.fila.push({ chave, tentativas: 0 });
+    this.fila.push({ chave, tentativas: 0, origem });
     void this.drenar();
     return true;
   }
@@ -63,7 +71,7 @@ export class FilaSequencial {
       let item: ItemFila | undefined;
       while ((item = this.fila.shift())) {
         try {
-          await this.processar(item.chave);
+          await this.processar(item.chave, item.origem);
           this.pendentes.delete(item.chave);
         } catch (e) {
           item.tentativas += 1;
