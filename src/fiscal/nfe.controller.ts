@@ -18,7 +18,9 @@ export class NfeController {
   @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
   @Post('nfe')
   importar(@Body() dto: ImportarNfeDto, @CurrentUser() user: UsuarioAutenticado) {
-    return this.nfe.importar(dto.empresaId, dto.xml, user.userId);
+    // Classifica pelo tpNF do XML: compra (entrada → motor de crédito) ou venda/NFC-e
+    // (saída → débito). Permite subir notas EMITIDAS de qualquer sistema (ex.: VOTI).
+    return this.nfe.importarClassificado(dto.empresaId, dto.xml, user.userId);
   }
 
   @Get('documentos')

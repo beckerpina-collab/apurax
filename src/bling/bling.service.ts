@@ -347,7 +347,7 @@ export class BlingService {
         await this.cls.run(async () => {
           this.cls.set('tenantId', cx.tenantId);
           try {
-            await this.nfe.importarDoBling(cx.empresaId, xml);
+            await this.nfe.importarClassificado(cx.empresaId, xml);
             this.bumpVarredura(cx.tenantId, cx.empresaId, 'importadas');
           } catch (e) {
             this.bumpVarredura(cx.tenantId, cx.empresaId, 'errosImport');

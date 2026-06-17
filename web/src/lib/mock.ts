@@ -220,6 +220,20 @@ export function demoStatusNfceSp() {
   };
 }
 
+export function demoSincronizarNfseAdn() {
+  return {
+    documentosNovos: 2,
+    jaImportadas: 0,
+    eventos: 1,
+    semXml: 0,
+    erros: 0,
+    ultimoNSU: '12',
+    maxNSU: '12',
+    status: '100',
+    mensagem: '2 NFS-e importada(s) (NSU 12/12). (demo)',
+  };
+}
+
 export function demoApurarSimples(ano: number, mes: number, anexo = 'I') {
   // Demo: receita do mês R$ 12.200; RBT12 R$ 146.400 (1ª faixa do Anexo I → 4% efetivo).
   const receitaMes = 12200;

@@ -40,6 +40,18 @@ interface StatusNfce {
   atualizadoEm: string;
 }
 
+interface ResultadoNfseAdn {
+  documentosNovos: number;
+  jaImportadas: number;
+  eventos: number;
+  semXml: number;
+  erros: number;
+  ultimoNSU: string;
+  maxNSU: string;
+  status: string;
+  mensagem: string;
+}
+
 type TipoEvento = '210210' | '210200' | '210220' | '210240';
 const EVENTOS: { value: TipoEvento; label: string; dica: string }[] = [
   { value: '210210', label: 'Ciência da Operação', dica: 'Libera o download do XML completo na próxima sincronização.' },
@@ -114,6 +126,27 @@ export default function Captura() {
       setStatusNfce((await api.statusNfceSp(empresaId)) as StatusNfce | null);
     } catch {
       /* status é informativo — silencioso */
+    }
+  }
+
+  // NFS-e Nacional (ADN)
+  const [sincNfse, setSincNfse] = useState(false);
+  const [resultadoNfse, setResultadoNfse] = useState<ResultadoNfseAdn | null>(null);
+
+  async function sincronizarNfse() {
+    if (!empresaId) {
+      toast.error('Selecione uma empresa no topo da página antes de sincronizar.');
+      return;
+    }
+    setSincNfse(true);
+    try {
+      const r = (await api.sincronizarNfseAdn(empresaId)) as ResultadoNfseAdn;
+      setResultadoNfse(r);
+      toast.success(r.mensagem ?? 'Sincronização de NFS-e concluída.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao sincronizar NFS-e (ADN).');
+    } finally {
+      setSincNfse(false);
     }
   }
 
@@ -413,6 +446,37 @@ export default function Captura() {
 
           <p className="text-xs text-muted-foreground">
             Janela máxima de 100 dias. Serviço novo da SEFAZ-SP (NT SAE-NFC-e v1.00) — validar em homologação.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>NFS-e Nacional (ADN)</CardTitle>
+          <CardDescription>
+            Baixa as NFS-e (serviços) que você emitiu no <b>padrão Nacional</b> (gov.br/nfse), direto do Ambiente de
+            Dados Nacional — por NSU, com certificado e-CNPJ. Cobre os municípios aderentes (a maioria). As notas
+            entram na base de <b>ISS</b> da apuração. Municípios fora do padrão nacional ainda dependem do sistema emissor.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={sincronizarNfse} disabled={sincNfse}>
+            {sincNfse ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+            Sincronizar NFS-e (Nacional)
+          </Button>
+
+          {resultadoNfse && (
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertTitle>NFS-e — status {resultadoNfse.status}</AlertTitle>
+              <AlertDescription>
+                {resultadoNfse.mensagem} (eventos: {resultadoNfse.eventos} · sem XML: {resultadoNfse.semXml} · erros: {resultadoNfse.erros})
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Serviço novo do Sistema Nacional NFS-e (ADN, manual v1.0 de 2026) — cliente pronto a validar em homologação com o e-CNPJ.
           </p>
         </CardContent>
       </Card>

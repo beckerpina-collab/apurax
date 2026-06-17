@@ -9,6 +9,7 @@ import {
   demoApurarSimples,
   demoCapturarNfceSp,
   demoStatusNfceSp,
+  demoSincronizarNfseAdn,
   demoBlingPuxar,
   demoBlingStatus,
   demoClassificar,
@@ -342,6 +343,15 @@ export const api = {
       return demoStatusNfceSp();
     }
     return http(`/sae/nfce/status?empresaId=${encodeURIComponent(empresaId)}`);
+  },
+
+  /** Captura de NFS-e emitidas pelo ADN (Sistema Nacional NFS-e) — por NSU. */
+  async sincronizarNfseAdn(empresaId: string) {
+    if (DEMO) {
+      await delay(800);
+      return demoSincronizarNfseAdn();
+    }
+    return http('/nfse/adn/sincronizar', { method: 'POST', body: JSON.stringify({ empresaId }) });
   },
 
   async manifestar(

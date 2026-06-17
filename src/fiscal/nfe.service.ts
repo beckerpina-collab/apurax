@@ -259,15 +259,15 @@ export class NfeService {
   }
 
   /**
-   * Importa uma NF-e vinda do Bling classificando pelo tpNF do XML:
+   * Importa uma NF-e/NFC-e classificando pelo tpNF do XML (origem: Bling, SAE-SP,
+   * upload de XML emitido em outro sistema — ex.: VOTI):
    *  - tpNF=1 (saída/venda) → importarSaida (gera débito);
-   *  - tpNF=0 (entrada — ex.: DEVOLUÇÃO de venda emitida pela empresa) → importar
-   *    (roda o motor de crédito, de modo que a devolução estorne imposto na apuração).
+   *  - tpNF=0 (entrada — compra ou DEVOLUÇÃO de venda emitida pela empresa) → importar
+   *    (roda o motor de crédito; na devolução, estorna imposto na apuração).
    * Dedup por chave aqui (silenciosa) evita lançar/contar erro em re-entrega de webhook
-   * e evita duplicar com a captura SEFAZ. (CFOP de devolução tem regras próprias — o
-   * motor trata como crédito de entrada; refinar o tratamento da devolução é um passo futuro.)
+   * e evita duplicar com a captura SEFAZ.
    */
-  async importarDoBling(empresaId: string, xml: string) {
+  async importarClassificado(empresaId: string, xml: string, usuarioId?: string) {
     const nfe = this.parser.parse(xml);
     const existente = await this.prisma.scoped.documentoFiscal.findFirst({
       where: { chaveAcesso: nfe.chaveAcesso },
@@ -276,7 +276,7 @@ export class NfeService {
     if (existente) {
       return { documentoId: existente.id, chaveAcesso: nfe.chaveAcesso, jaImportada: true, tipoOperacao: existente.tipoOperacao };
     }
-    return nfe.tpNF === '0' ? this.importar(empresaId, xml) : this.importarSaida(empresaId, xml);
+    return nfe.tpNF === '0' ? this.importar(empresaId, xml, usuarioId) : this.importarSaida(empresaId, xml, usuarioId);
   }
 
   /**

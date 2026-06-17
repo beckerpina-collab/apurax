@@ -28,7 +28,7 @@ const MAX_RETRY_656 = 4;
  * Captura das NFC-e EMITIDAS pela empresa via SAE da SEFAZ-SP (NFCeListagemChaves +
  * NFCeDownloadXML). Roda em 2º plano (status em memória, como a varredura do Bling):
  * lista as chaves do período (paginando por data) e baixa/importa cada XML como SAÍDA
- * (NfeService.importarDoBling classifica pelo tpNF). Dedup por chave evita reimportar.
+ * (NfeService.importarClassificado classifica pelo tpNF). Dedup por chave evita reimportar.
  */
 @Injectable()
 export class SaeService {
@@ -153,7 +153,7 @@ export class SaeService {
       }
       if (r.xml) {
         try {
-          const imp = (await this.nfe.importarDoBling(empresaId, r.xml)) as { jaImportada?: boolean };
+          const imp = (await this.nfe.importarClassificado(empresaId, r.xml)) as { jaImportada?: boolean };
           this.bump(chaveStatus, imp?.jaImportada ? 'jaImportadas' : 'importadas');
         } catch (e) {
           this.bump(chaveStatus, 'erros');
