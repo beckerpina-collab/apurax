@@ -6,6 +6,7 @@ import {
   EMPRESAS,
   RESUMO_CST_DEMO,
   demoApurarImposto,
+  demoApurarSimples,
   demoBlingPuxar,
   demoBlingStatus,
   demoClassificar,
@@ -54,7 +55,7 @@ export interface RegistrarPayload {
 }
 
 export type ModeloDoc = 'nfe' | 'cte' | 'nfse';
-export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss' | 'cbs' | 'ibs';
+export type ImpostoTipo = 'icms' | 'ipi' | 'pis-cofins' | 'iss' | 'cbs' | 'ibs' | 'simples';
 
 // Renovação de token compartilhada: várias chamadas que tomem 401 ao mesmo
 // tempo disparam UM único /auth/refresh e aguardam o mesmo resultado.
@@ -297,6 +298,15 @@ export const api = {
       return demoApurarImposto(nome, ano, mes);
     }
     return http(`/apuracao/${tipo}`, { method: 'POST', body: JSON.stringify({ empresaId, ano, mes }) });
+  },
+
+  /** Apuração do Simples Nacional (DAS) por competência — lê as saídas e calcula a alíquota efetiva. */
+  async apurarSimples(empresaId: string, ano: number, mes: number, anexo?: string) {
+    if (DEMO) {
+      await delay(500);
+      return demoApurarSimples(ano, mes, anexo);
+    }
+    return http(`/apuracao/simples`, { method: 'POST', body: JSON.stringify({ empresaId, ano, mes, anexo }) });
   },
 
   async sincronizarSefaz(empresaId: string, modelo: 'NFE' | 'CTE' = 'NFE') {

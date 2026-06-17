@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApuracaoFiscalService } from './apuracao-fiscal.service';
 import { ApurarIcmsDto } from './dto/apurar-icms.dto';
+import { ApurarSimplesDto } from './dto/apurar-simples.dto';
 import { SimplesDasDto } from './dto/simples-das.dto';
 
 @Controller('apuracao')
@@ -43,6 +44,16 @@ export class ApuracaoFiscalController {
   @Post('ibs')
   ibs(@Body() dto: ApurarIcmsDto) {
     return this.apuracao.apurarCbsIbsCompetencia(dto.empresaId, 'IBS', dto.ano, dto.mes);
+  }
+
+  @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
+  @Post('simples')
+  simples(@Body() dto: ApurarSimplesDto) {
+    return this.apuracao.apurarSimplesCompetencia(dto.empresaId, dto.ano, dto.mes, {
+      anexo: dto.anexo,
+      folha12: dto.folha12,
+      receita12: dto.receita12,
+    });
   }
 
   @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)

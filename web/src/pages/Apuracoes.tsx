@@ -69,7 +69,22 @@ const IMPOSTOS: Array<{ label: string; value: ImpostoTipo }> = [
   { label: 'ISS', value: 'iss' },
   { label: 'CBS', value: 'cbs' },
   { label: 'IBS', value: 'ibs' },
+  { label: 'Simples (DAS)', value: 'simples' },
 ];
+
+const ANEXOS = ['I', 'II', 'III', 'IV', 'V'] as const;
+
+// Detalhe do DAS retornado pela apuração do Simples.
+interface DetalheSimples {
+  anexo: string;
+  faixa: number;
+  aliquotaNominal: number;
+  parcelaDeduzir: number;
+  aliquotaEfetiva: number;
+  das: number;
+  receitaMes: number;
+  rbt12: number;
+}
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ANO_ATUAL = Number(mesAtualSP().slice(0, 4));
@@ -113,11 +128,13 @@ export default function Apuracoes() {
 
   // ---- Aba Imposto a pagar (competência pré-selecionada = mês atual) ----
   const [tipo, setTipo] = useState<ImpostoTipo>('icms');
+  const [anexo, setAnexo] = useState<string>('I'); // só para o Simples (DAS)
   const [ano, setAno] = useState(Number(competenciaAtual.slice(0, 4)));
   const [mes, setMes] = useState(Number(competenciaAtual.slice(5, 7)));
   const [apurando, setApurando] = useState(false);
   // A API devolve uma LISTA (PIS/COFINS = 2 linhas; demais = 1).
   const [resultados, setResultados] = useState<ResultadoImposto[]>([]);
+  const [detalheSimples, setDetalheSimples] = useState<DetalheSimples | null>(null);
 
   async function apurar() {
     if (!empresaId) {
@@ -126,11 +143,23 @@ export default function Apuracoes() {
     }
     setApurando(true);
     try {
-      const r = (await api.apurarImposto(tipo, empresaId, ano, mes)) as ResultadoImposto[];
-      const lista = Array.isArray(r) ? r : [r]; // tolera resposta antiga (objeto único)
-      setResultados(lista);
       const rotulo = IMPOSTOS.find((i) => i.value === tipo)?.label ?? tipo;
-      toast.success(`Apuração de ${rotulo} concluída para ${lista[0]?.competencia ?? `${ano}-${mes}`}.`);
+      if (tipo === 'simples') {
+        const r = (await api.apurarSimples(empresaId, ano, mes, anexo)) as {
+          linhas: ResultadoImposto[];
+          simples: DetalheSimples;
+          alertas?: string[];
+        };
+        setResultados(r.linhas ?? []);
+        setDetalheSimples(r.simples ?? null);
+        toast.success(`DAS apurado para ${r.linhas?.[0]?.competencia ?? `${ano}-${mes}`} (Anexo ${r.simples?.anexo ?? anexo}).`);
+      } else {
+        const r = (await api.apurarImposto(tipo, empresaId, ano, mes)) as ResultadoImposto[];
+        const lista = Array.isArray(r) ? r : [r]; // tolera resposta antiga (objeto único)
+        setResultados(lista);
+        setDetalheSimples(null);
+        toast.success(`Apuração de ${rotulo} concluída para ${lista[0]?.competencia ?? `${ano}-${mes}`}.`);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Falha ao apurar o imposto.');
     } finally {
@@ -279,7 +308,9 @@ export default function Apuracoes() {
             <CardHeader>
               <CardTitle>Apurar imposto da competência</CardTitle>
               <CardDescription>
-                Selecione o imposto e a competência para calcular o saldo a recolher.
+                {tipo === 'simples'
+                  ? 'Simples Nacional: o DAS é a receita das vendas do mês × alíquota efetiva da faixa da RBT12 no anexo (sem débito-crédito).'
+                  : 'Selecione o imposto e a competência para calcular o saldo a recolher.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -299,6 +330,24 @@ export default function Apuracoes() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {tipo === 'simples' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="anexo">Anexo</Label>
+                    <Select value={anexo} onValueChange={setAnexo}>
+                      <SelectTrigger id="anexo">
+                        <SelectValue placeholder="Anexo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ANEXOS.map((a) => (
+                          <SelectItem key={a} value={a}>
+                            Anexo {a}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="ano">Ano</Label>
@@ -381,6 +430,34 @@ export default function Apuracoes() {
               </CardContent>
             </Card>
           ))}
+
+          {detalheSimples && (
+            <Card>
+              <CardHeader>
+                <CardTitle>DAS — detalhe do cálculo (Anexo {detalheSimples.anexo})</CardTitle>
+                <CardDescription>
+                  Receita do mês × alíquota efetiva da faixa da RBT12. Base: LC 123/2006, art. 18.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {[
+                    ['Receita do mês', brl(detalheSimples.receitaMes)],
+                    ['RBT12 (12 meses)', brl(detalheSimples.rbt12)],
+                    ['Faixa', `${detalheSimples.faixa}ª`],
+                    ['Alíquota nominal', `${detalheSimples.aliquotaNominal}%`],
+                    ['Parcela a deduzir', brl(detalheSimples.parcelaDeduzir)],
+                    ['Alíquota efetiva', `${(detalheSimples.aliquotaEfetiva * 100).toFixed(4)}%`],
+                  ].map(([rotulo, valor]) => (
+                    <div key={rotulo} className="rounded-lg border bg-muted/30 p-3">
+                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+                      <dd className="mt-1 text-sm font-semibold tabular-nums">{valor}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

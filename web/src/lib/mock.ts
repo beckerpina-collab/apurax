@@ -196,6 +196,30 @@ export function demoApurarImposto(imposto: string, ano: number, mes: number): Ap
   };
 }
 
+export function demoApurarSimples(ano: number, mes: number, anexo = 'I') {
+  // Demo: receita do mês R$ 12.200; RBT12 R$ 146.400 (1ª faixa do Anexo I → 4% efetivo).
+  const receitaMes = 12200;
+  const rbt12 = 146400;
+  const aliquotaEfetiva = 0.04;
+  const das = Math.round(receitaMes * aliquotaEfetiva * 100) / 100;
+  const competencia = `${ano}-${String(mes).padStart(2, '0')}`;
+  return {
+    linhas: [
+      {
+        imposto: 'SIMPLES (DAS)',
+        competencia,
+        debito: das,
+        credito: 0,
+        saldoCredorAnterior: 0,
+        aRecolher: das,
+        saldoCredorTransportar: 0,
+      },
+    ],
+    simples: { anexo, faixa: 1, aliquotaNominal: 4, parcelaDeduzir: 0, aliquotaEfetiva, das, receitaMes, rbt12 },
+    alertas: ['Receita considerada = vendas (NF-e/NFC-e de saída). (demo)'],
+  };
+}
+
 export function demoClassificar(payload: { descricao: string; ncm: string; cfop: string }) {
   // Validador de NCM/impostos — devolve veredito + sugestões (IA assistiva).
   const ncmOk = /^\d{8}$/.test(payload.ncm.replace(/\D/g, ''));

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -312,6 +312,106 @@ export class ApuracaoFiscalService {
         saldoCredorTransportar: zero,
       }),
     ];
+  }
+
+  /**
+   * Apuração do Simples Nacional (DAS / PGDAS-D) por competência — bem mais simples
+   * que os demais regimes: NÃO há débito-crédito. O DAS = receita bruta do mês ×
+   * alíquota EFETIVA da faixa da RBT12 no anexo (LC 123/2006, art. 18).
+   *   - receita do mês = Σ valorTotal das saídas (NF-e/NFC-e) da competência;
+   *   - RBT12 = receita bruta dos 12 meses ANTERIORES ao período;
+   *   - anexo: explícito, ou por Fator R (folha/receita 12m → III/V), ou I (comércio).
+   */
+  async apurarSimplesCompetencia(
+    empresaId: string,
+    ano: number,
+    mes: number,
+    opts: { anexo?: Anexo; folha12?: number; receita12?: number } = {},
+  ) {
+    const empresa = await this.prisma.scoped.empresa.findFirst({ where: { id: empresaId } });
+    if (!empresa) throw new NotFoundException('Empresa não encontrada para este tenant.');
+    if (empresa.regimeTributario !== 'SIMPLES_NACIONAL') {
+      throw new BadRequestException(
+        'A apuração do DAS é exclusiva do Simples Nacional. No Lucro Real/Presumido use as apurações por imposto (ICMS, IPI, PIS/COFINS, ISS).',
+      );
+    }
+
+    const anexo: Anexo =
+      opts.anexo ??
+      (opts.folha12 != null && opts.receita12 != null ? anexoPorFatorR(opts.folha12, opts.receita12) : 'I');
+
+    const { inicio, fim } = this.periodo(ano, mes);
+    const receitaMes = await this.receitaBrutaSaidas(empresaId, inicio, fim);
+    // RBT12: 12 meses anteriores ao período — [mês-12, mês) (JS normaliza meses negativos).
+    const ini12 = new Date(Date.UTC(ano, mes - 1 - 12, 1));
+    const rbt12 = await this.receitaBrutaSaidas(empresaId, ini12, inicio);
+
+    const r = calcularDas({ anexo, rbt12: rbt12.toNumber(), receitaMes: receitaMes.toNumber() });
+    const das = new Prisma.Decimal(r.das);
+    const zero = new Prisma.Decimal(0);
+
+    const detalhe = {
+      anexo: r.anexo,
+      faixa: r.faixa,
+      aliquotaNominal: r.aliquotaNominal,
+      parcelaDeduzir: r.parcelaDeduzir,
+      aliquotaEfetiva: r.aliquotaEfetiva,
+      receitaMes: receitaMes.toFixed(2),
+      rbt12: rbt12.toFixed(2),
+    };
+
+    const ap = await this.prisma.scoped.apuracaoImposto.upsert({
+      where: { tenantId_empresaId_imposto_ano_mes: { tenantId: this.prisma.tenantId, empresaId, imposto: 'SIMPLES', ano, mes } },
+      create: {
+        tenantId: this.prisma.tenantId,
+        empresaId,
+        imposto: 'SIMPLES',
+        ano,
+        mes,
+        debito: das,
+        credito: zero,
+        saldoCredorAnterior: zero,
+        saldoApurado: das,
+        aRecolher: das,
+        saldoCredorTransportar: zero,
+        detalhe,
+      },
+      update: { debito: das, credito: zero, saldoApurado: das, aRecolher: das, detalhe },
+    });
+    await this.audit('APURACAO_SIMPLES', ap.id, { ano, mes, anexo: r.anexo, das: r.das, rbt12: rbt12.toFixed(2) });
+
+    const alertas: string[] = [];
+    if (rbt12.isZero()) {
+      alertas.push(
+        'RBT12 = 0 (sem receita nos 12 meses anteriores no sistema) → usou a 1ª faixa. Em início de atividade a RBT12 é proporcionalizada (média × 12) — confira no PGDAS-D.',
+      );
+    }
+    alertas.push(
+      'Receita considerada = vendas (NF-e/NFC-e de saída). Serviços (NFS-e) e a segregação por anexo em atividade mista devem ser conferidos no PGDAS-D.',
+    );
+
+    return {
+      linhas: [
+        this.linha('SIMPLES (DAS)', `${ano}-${String(mes).padStart(2, '0')}`, {
+          debito: das,
+          credito: zero,
+          saldoCredorAnterior: zero,
+          aRecolher: das,
+          saldoCredorTransportar: zero,
+        }),
+      ],
+      simples: { ...r, receitaMes: receitaMes.toNumber(), rbt12: rbt12.toNumber() },
+      alertas,
+    };
+  }
+
+  /** Receita bruta (Σ valorTotal das saídas NF-e/NFC-e) no intervalo [inicio, fim). */
+  private async receitaBrutaSaidas(empresaId: string, inicio: Date, fim: Date): Promise<Prisma.Decimal> {
+    const agg = await this.prisma.scoped.documentoFiscal.aggregate({
+      _sum: { valorTotal: true },
+      where: { empresaId, tipoOperacao: 'SAIDA', dataEmissao: { gte: inicio, lt: fim } },
+    });
+    return new Prisma.Decimal(agg._sum.valorTotal ?? 0);
   }
 
   private periodo(ano: number, mes: number) {
