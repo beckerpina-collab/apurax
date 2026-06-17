@@ -10,10 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '../lib/api';
-import { brl } from '../lib/format';
+import { brl, mesAtualSP } from '../lib/format';
 import { DASHBOARD, type Apuracao } from '../lib/mock';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+// Competência atual no fuso de São Paulo — o Painel já abre pré-filtrado no mês atual.
+const COMP_ATUAL = mesAtualSP(); // 'YYYY-MM'
+const ANO_ATUAL = Number(COMP_ATUAL.slice(0, 4));
 
 type Resumo = typeof DASHBOARD;
 
@@ -22,8 +25,10 @@ export default function Dashboard() {
   // eles "piscavam" na tela antes dos números reais chegarem).
   const [d, setD] = useState<Resumo | null>(null);
   const [apur, setApur] = useState<Apuracao[]>([]);
-  const [ano, setAno] = useState('todos');
-  const [mes, setMes] = useState('todos');
+  // Default = ano/mês atuais (o usuário pode trocar p/ "Todos" depois). Mês sem zero
+  // à esquerda p/ casar com os SelectItem de mês (value="1".."12").
+  const [ano, setAno] = useState(String(ANO_ATUAL));
+  const [mes, setMes] = useState(String(Number(COMP_ATUAL.slice(5, 7))));
 
   useEffect(() => {
     api
@@ -36,7 +41,9 @@ export default function Dashboard() {
     api.apuracoes().then(setApur).catch(() => undefined);
   }, []);
 
-  const anos = d?.anosDisponiveis ?? [];
+  // Garante o ano atual na lista (mesmo sem documentos ainda) p/ a pré-seleção
+  // ter item correspondente; ordena desc.
+  const anos = Array.from(new Set([ANO_ATUAL, ...(d?.anosDisponiveis ?? [])])).sort((a, b) => b - a);
 
   return (
     <div>
