@@ -27,6 +27,7 @@ export class NfseController {
     return this.adn.sincronizar(dto.empresaId);
   }
 
+  @Roles(Role.ADMIN, Role.CONTADOR, Role.CLIENTE)
   @Get()
   listar() {
     return this.nfse.listar();

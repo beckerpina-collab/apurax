@@ -84,9 +84,10 @@ export class NfseParserService {
     };
   }
 
-  /** Busca recursiva pelo primeiro valor escalar de uma tag (tolerante ao agrupamento). */
-  private achar(obj: unknown, chave: string): string | undefined {
-    if (obj == null || typeof obj !== 'object') return undefined;
+  /** Busca recursiva pelo primeiro valor escalar de uma tag (tolerante ao agrupamento).
+   *  prof limita a profundidade — evita stack overflow com XML profundamente aninhado (DoS). */
+  private achar(obj: unknown, chave: string, prof = 0): string | undefined {
+    if (obj == null || typeof obj !== 'object' || prof > 200) return undefined;
     const rec = obj as Record<string, unknown>;
     const direto = rec[chave];
     if (direto != null && typeof direto !== 'object') {
@@ -94,7 +95,7 @@ export class NfseParserService {
       return s === '' ? undefined : s;
     }
     for (const v of Object.values(rec)) {
-      const achado = this.achar(v, chave);
+      const achado = this.achar(v, chave, prof + 1);
       if (achado !== undefined) return achado;
     }
     return undefined;

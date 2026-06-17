@@ -356,8 +356,11 @@ export class BlingService {
         });
       } else {
         this.bumpVarredura(cx.tenantId, cx.empresaId, 'semXml');
+        // Diagnóstico SEM expor o conteúdo do documento: só o tamanho e a natureza do campo.
+        const v = String(nf.xml ?? '');
+        const natureza = v === '' ? 'vazio' : /^https?:\/\//i.test(v.trim()) ? 'url' : v.includes('<') ? 'xml' : 'outro';
         this.logger.warn(
-          `NF ${invoiceId} sem XML utilizável (xml="${String(nf.xml ?? '').slice(0, 80)}"; campos=[${Object.keys(nf).join(',')}]).`,
+          `NF ${invoiceId} sem XML utilizável (campo xml: natureza=${natureza}, ${v.length} chars; campos=[${Object.keys(nf).join(',')}]).`,
         );
       }
       // marcarSync é só informativo (não decide dedupe) — falha aqui NÃO deve

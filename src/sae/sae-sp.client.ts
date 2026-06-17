@@ -16,6 +16,8 @@ import { Agent, request as httpsRequest } from 'https';
  */
 
 const NS = 'http://www.portalfiscal.inf.br/nfe'; // namespace padrão da NF-e (NT manda usar)
+const MAX_RESPOSTA = 32 * 1024 * 1024; // anti-DoS: teto do corpo SOAP acumulado (32 MB)
+const MAX_PROF_PARSE = 200; // anti-DoS: profundidade máxima na busca recursiva do retorno
 
 const SVC = {
   listagem: {
@@ -190,8 +192,18 @@ export class SaeSpClient {
         },
         (res) => {
           let data = '';
-          res.on('data', (c) => (data += c));
+          let abortado = false;
+          res.on('data', (c) => {
+            if (abortado) return;
+            data += c;
+            if (data.length > MAX_RESPOSTA) {
+              abortado = true;
+              res.destroy();
+              reject(new Error('SAE-SP: resposta excede o limite de tamanho — abortada (anti-DoS).'));
+            }
+          });
           res.on('end', () => {
+            if (abortado) return;
             const status = res.statusCode ?? 0;
             if (status < 200 || status >= 300) reject(new Error(`SAE-SP HTTP ${status}: ${data.slice(0, 300)}`));
             else resolve(data);
@@ -205,11 +217,11 @@ export class SaeSpClient {
     });
   }
 
-  private localizar(obj: Record<string, any>, chave: string): Record<string, any> | undefined {
-    if (obj == null || typeof obj !== 'object') return undefined;
+  private localizar(obj: Record<string, any>, chave: string, prof = 0): Record<string, any> | undefined {
+    if (obj == null || typeof obj !== 'object' || prof > MAX_PROF_PARSE) return undefined;
     if (obj[chave]) return obj[chave];
     for (const v of Object.values(obj)) {
-      const achado = this.localizar(v as Record<string, any>, chave);
+      const achado = this.localizar(v as Record<string, any>, chave, prof + 1);
       if (achado) return achado;
     }
     return undefined;

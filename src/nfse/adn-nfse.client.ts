@@ -22,6 +22,12 @@ const BASE = {
   2: 'https://adn.producaorestrita.nfse.gov.br/contribuintes',
 } as const;
 
+// Anti-DoS: teto do conteúdo comprimido (Base64→buffer) e do descomprimido (gunzip),
+// e teto da resposta HTTP acumulada — evita zip/gzip bomb e resposta gigante (OOM).
+const MAX_COMPRIMIDO = 8 * 1024 * 1024; // 8 MB comprimido
+const MAX_DESCOMPRIMIDO = 16 * 1024 * 1024; // 16 MB após gunzip
+const MAX_RESPOSTA = 32 * 1024 * 1024; // 32 MB de corpo HTTP (lote de até 50 DF-e)
+
 export type TpAmbAdn = 1 | 2;
 
 export interface AdnDoc {
@@ -80,9 +86,15 @@ export class AdnNfseClient {
   private descomprimir(b64: string): string | null {
     try {
       const buf = Buffer.from(b64, 'base64');
+      if (buf.length > MAX_COMPRIMIDO) {
+        this.logger.warn(`ADN: documento comprimido grande demais (${buf.length} bytes) — ignorado.`);
+        return null;
+      }
       try {
-        return gunzipSync(buf).toString('utf8');
+        // maxOutputLength barra gzip bomb (lança RangeError em vez de estourar a memória).
+        return gunzipSync(buf, { maxOutputLength: MAX_DESCOMPRIMIDO }).toString('utf8');
       } catch {
+        if (buf.length > MAX_DESCOMPRIMIDO) return null; // não-gzip: limita o texto cru também
         const txt = buf.toString('utf8');
         return txt.includes('<') ? txt : null;
       }
@@ -117,8 +129,18 @@ export class AdnNfseClient {
         { hostname: u.hostname, path: `${u.pathname}${u.search}`, method: 'GET', agent, headers: { Accept: 'application/json' } },
         (res) => {
           let data = '';
-          res.on('data', (c) => (data += c));
+          let abortado = false;
+          res.on('data', (c) => {
+            if (abortado) return;
+            data += c;
+            if (data.length > MAX_RESPOSTA) {
+              abortado = true;
+              res.destroy();
+              reject(new Error('ADN NFS-e: resposta excede o limite de tamanho — abortada (anti-DoS).'));
+            }
+          });
           res.on('end', () => {
+            if (abortado) return;
             const status = res.statusCode ?? 0;
             if (status === 200) resolve(data);
             else if (status === 204) resolve('{"documentos":[]}'); // sem documentos novos
