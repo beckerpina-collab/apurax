@@ -21,64 +21,68 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async resumo(filtro: FiltroDashboard = {}) {
-    const db = this.prisma.scoped;
     const periodo = this.periodo(filtro);
     const whereDoc = periodo ? { dataEmissao: { gte: periodo.inicio, lt: periodo.fim } } : {};
     const whereCredito = periodo ? { documento: { dataEmissao: { gte: periodo.inicio, lt: periodo.fim } } } : {};
     const whereLacuna = periodo ? { importacao: { dtIni: { gte: periodo.inicio, lt: periodo.fim } } } : {};
     const whereImposto = filtro.ano ? { ano: filtro.ano } : {};
 
+    // UMA transação p/ as ~11 agregações (em vez de uma por query): elimina a
+    // disputa pelo pool de conexões e o overhead de transação repetido — é o que
+    // deixava o Painel lento. A RLS segue garantida (set_config único na tx).
     const [sugerido, homologado, lacunas, documentos, porCompetencia, faixaDocs, saidaAgg, saidaIcms, saidaCbsIbs, grpPis, grpCofins] =
-      await Promise.all([
-        db.apuracaoCredito.aggregate({
-          _sum: { valorCredito: true },
-          where: { status: 'SUGERIDO', creditoPermitido: true, ...whereCredito },
-        }),
-        db.apuracaoCredito.aggregate({
-          _sum: { valorCredito: true },
-          where: { status: 'HOMOLOGADO', creditoPermitido: true, ...whereCredito },
-        }),
-        db.lacunaCredito.aggregate({ _sum: { lacuna: true }, where: { lacuna: { gt: 0 }, ...whereLacuna } }),
-        db.documentoFiscal.count({ where: whereDoc }),
-        db.apuracaoImposto.groupBy({
-          by: ['ano', 'mes'],
-          _sum: { credito: true, aRecolher: true },
-          // só tributos LEGADOS: CBS/IBS (alíquota-teste 2026) não somam à carga atual —
-          // aparecem à parte no card "CBS/IBS (saídas)" (saidas.cbsDebito/ibsDebito).
-          where: { ...whereImposto, imposto: { in: ['ICMS', 'IPI', 'PIS', 'COFINS', 'ISS'] } },
-          orderBy: [{ ano: 'asc' }, { mes: 'asc' }],
-        }),
-        // faixa de anos com documentos (sempre SEM filtro — alimenta o seletor)
-        db.documentoFiscal.aggregate({ _min: { dataEmissao: true }, _max: { dataEmissao: true } }),
-        // SAÍDAS importadas (direto dos documentos — não precisa rodar apuração)
-        db.documentoFiscal.aggregate({
-          _count: true,
-          _sum: { valorTotal: true },
-          where: { tipoOperacao: 'SAIDA', ...whereDoc },
-        }),
-        db.itemDocumento.aggregate({
-          _sum: { vIcms: true },
-          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
-        }),
-        // CBS/IBS de SAÍDA (débito) — reforma 2026.
-        db.itemDocumento.aggregate({
-          _sum: { vCbs: true, vIbsUf: true, vIbsMun: true },
-          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
-        }),
-        // PIS/COFINS de SAÍDA por CST (débito) — resumo no painel.
-        db.itemDocumento.groupBy({
-          by: ['cstPis'],
-          _count: true,
-          _sum: { vPis: true, vBcPis: true },
-          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
-        }),
-        db.itemDocumento.groupBy({
-          by: ['cstCofins'],
-          _count: true,
-          _sum: { vCofins: true, vBcCofins: true },
-          where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
-        }),
-      ]);
+      await this.prisma.scopedBatch((tx) =>
+        Promise.all([
+          tx.apuracaoCredito.aggregate({
+            _sum: { valorCredito: true },
+            where: { status: 'SUGERIDO', creditoPermitido: true, ...whereCredito },
+          }),
+          tx.apuracaoCredito.aggregate({
+            _sum: { valorCredito: true },
+            where: { status: 'HOMOLOGADO', creditoPermitido: true, ...whereCredito },
+          }),
+          tx.lacunaCredito.aggregate({ _sum: { lacuna: true }, where: { lacuna: { gt: 0 }, ...whereLacuna } }),
+          tx.documentoFiscal.count({ where: whereDoc }),
+          tx.apuracaoImposto.groupBy({
+            by: ['ano', 'mes'],
+            _sum: { credito: true, aRecolher: true },
+            // só tributos LEGADOS: CBS/IBS (alíquota-teste 2026) não somam à carga atual —
+            // aparecem à parte no card "CBS/IBS (saídas)" (saidas.cbsDebito/ibsDebito).
+            where: { ...whereImposto, imposto: { in: ['ICMS', 'IPI', 'PIS', 'COFINS', 'ISS'] } },
+            orderBy: [{ ano: 'asc' }, { mes: 'asc' }],
+          }),
+          // faixa de anos com documentos (sempre SEM filtro — alimenta o seletor)
+          tx.documentoFiscal.aggregate({ _min: { dataEmissao: true }, _max: { dataEmissao: true } }),
+          // SAÍDAS importadas (direto dos documentos — não precisa rodar apuração)
+          tx.documentoFiscal.aggregate({
+            _count: true,
+            _sum: { valorTotal: true },
+            where: { tipoOperacao: 'SAIDA', ...whereDoc },
+          }),
+          tx.itemDocumento.aggregate({
+            _sum: { vIcms: true },
+            where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+          }),
+          // CBS/IBS de SAÍDA (débito) — reforma 2026.
+          tx.itemDocumento.aggregate({
+            _sum: { vCbs: true, vIbsUf: true, vIbsMun: true },
+            where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+          }),
+          // PIS/COFINS de SAÍDA por CST (débito) — resumo no painel.
+          tx.itemDocumento.groupBy({
+            by: ['cstPis'],
+            _count: true,
+            _sum: { vPis: true, vBcPis: true },
+            where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+          }),
+          tx.itemDocumento.groupBy({
+            by: ['cstCofins'],
+            _count: true,
+            _sum: { vCofins: true, vBcCofins: true },
+            where: { documento: { tipoOperacao: 'SAIDA', ...whereDoc } },
+          }),
+        ]),
+      );
 
     const linhaCst = (cst: string | null, itens: number, base: unknown, valor: unknown): LinhaCst => ({
       cst: cst ?? '—',

@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
 /**
@@ -44,6 +44,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbsUf" DECIMAL(18,2)',
       'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbsMun" DECIMAL(18,2)',
       'ALTER TABLE "item_documento" ADD COLUMN IF NOT EXISTS "vIbs" DECIMAL(18,2)',
+      // Índice p/ as agregações de SAÍDA do Painel (tenantId+tipoOperacao+faixa de
+      // dataEmissao) — complementa o índice (tenantId, dataEmissao) existente.
+      'CREATE INDEX IF NOT EXISTS "idx_docfiscal_tenant_tipo_data" ON "documento_fiscal" ("tenantId", "tipoOperacao", "dataEmissao")',
     ];
     for (const sql of ddl) {
       try {
@@ -88,5 +91,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   /** cliente escopado ao tenant do contexto atual. */
   get scoped() {
     return this.forTenant(this.tenantId);
+  }
+
+  /**
+   * Executa VÁRIAS consultas escopadas ao tenant dentro de UMA ÚNICA transação,
+   * setando o GUC `app.current_tenant` uma só vez. Use em telas que disparam
+   * muitas agregações de uma vez (ex.: o Painel faz ~11): com `scoped`, cada
+   * consulta abriria sua PRÓPRIA transação (BEGIN/set_config/COMMIT) e disputaria
+   * o pool de conexões — lento e capaz de esgotar o pool. Aqui é 1 transação,
+   * 1 conexão, 1 set_config.
+   *
+   * A RLS continua garantida: o set_config(...,true) é LOCAL à transação e roda
+   * ANTES do callback, então todas as queries de `fn` veem só o tenant atual.
+   */
+  scopedBatch<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    const tenantId = this.tenantId;
+    return this.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant', ${tenantId}, true)`;
+        return fn(tx);
+      },
+      { timeout: 20_000 },
+    );
   }
 }
